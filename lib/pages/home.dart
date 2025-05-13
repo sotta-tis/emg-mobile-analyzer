@@ -12,7 +12,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('収支管理')),
+      appBar: AppBar(title: const Text('home')),
       body: Column(children: [const Divider(height: 1)]),
     );
   }
