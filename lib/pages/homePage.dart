@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:model_test_app/widgets/ffi_test_calc.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -12,8 +13,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('home')),
-      body: Column(children: [const Divider(height: 1)]),
+      appBar: AppBar(title: const Text('Home')),
+      body: Column(
+        children: const [
+          Divider(height: 1),
+          FfiTestWidget(), // FFIテスト用ウィジェットを表示
+        ],
+      ),
     );
   }
 }
