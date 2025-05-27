@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:model_test_app/bleWidget.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -13,7 +14,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('home')),
-      body: Column(children: [const Divider(height: 1)]),
+      body: Column(
+        children: [
+          const Divider(height: 1),
+          const Expanded(child: Center(child: BleTempScannerWidget())),
+        ],
+      ),
     );
   }
 }
