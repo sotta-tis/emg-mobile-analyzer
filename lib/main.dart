@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:model_test_app/app_router.dart';
-import 'package:model_test_app/theme.dart';
+import 'package:emg_mobile_analyzer/app_router.dart';
+import 'package:emg_mobile_analyzer/theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));

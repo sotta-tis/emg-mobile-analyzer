@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:model_test_app/bleWidget.dart';
+import 'package:emg_mobile_analyzer/bleWidget.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});

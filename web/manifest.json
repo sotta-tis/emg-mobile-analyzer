@@ -1,6 +1,6 @@
 {
-    "name": "model_test_app",
-    "short_name": "model_test_app",
+    "name": "emg_mobile_analyzer",
+    "short_name": "emg_mobile_analyzer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

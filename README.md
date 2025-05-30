@@ -1,4 +1,4 @@
-# model_test_app
+# emg_mobile_analyzer
 
 A new Flutter project.
 

@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="model_test_app"
+        android:label="emg_mobile_analyzer"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
