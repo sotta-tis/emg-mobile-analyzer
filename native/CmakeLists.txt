@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.10)
+project(native_engine)
+
+# ビルド対象ファイル
+set(SOURCES
+    src/calc.cpp
+)
+
+# headers
+set(HEADERS
+    include/calc.h
+)
+
+# ライブラリターゲット指定
+add_library(native_engine SHARED ${SOURCES})
+
+# インクルードパス指定
+target_include_directories(native_engine PUBLIC include)
+
+# 公開ヘッダ設定
+set_target_properties(native_engine PROPERTIES
+    PUBLIC_HEADER "${HEADERS}"
+)
+
+# Apple向けのフレームワーク設定
+if(APPLE)
+    set_target_properties(native_engine PROPERTIES
+        FRAMEWORK TRUE
+        PUBLIC_HEADER "${HEADERS}"
+        MACOSX_FRAMEWORK_IDENTIFIER com.example.native_engine
+    )
+endif()
+
+# Android向けの log ライブラリリンク設定
+if(ANDROID)
+    find_library(log-lib log)
+    target_link_libraries(native_engine ${log-lib})
+endif()
