@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emg_mobile_analyzer/widgets/ffi_sample.dart';
+import 'package:emg_mobile_analyzer/widgets/bleWidget.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -15,10 +16,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Home')),
       body: Column(
-        children: const [
-          Divider(height: 1),
-          FfiTestWidget(), // FFIテスト用ウィジェットを表示
-        ],
+        children: const [Divider(height: 1), BleTempScannerWidget()],
       ),
     );
   }
