@@ -1,5 +1,37 @@
-## C++ Nativeのビルド
-### ios
+# EMG Mobile Analyzer
+
+## セットアップ
+
+### スクリプトの実行権限を付与
+
+初回のみ、ビルドスクリプトに実行権限を付与する必要があります：
+
+```bash
+chmod +x ios-sim ios-dev
+```
+
+## ビルドと実行
+
+### iOS Simulator用
+
+プロジェクトのどのディレクトリからでも実行可能：
+
+```bash
+./ios-sim
+```
+
+### iOS実機用
+
+プロジェクトのどのディレクトリからでも実行可能：
+
+```bash
+./ios-dev
+```
+
+## 手動ビルド（上級者向け）
+
+### C++ Nativeの手動ビルド
+#### ios
 ``` bash
 mkdir native/build 
 cd native/build 

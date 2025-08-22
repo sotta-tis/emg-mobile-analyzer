@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the project root directory
+cd "$SCRIPT_DIR"
+
+echo "Building native engine for iOS Device..."
+echo "Working directory: $(pwd)"
+
+# Create build directory
+mkdir -p native/build
+cd native/build
+
+# Build for iOS Device
+cmake .. -G "Xcode" \
+  -DCMAKE_SYSTEM_NAME=iOS \
+  -DCMAKE_OSX_ARCHITECTURES="arm64;arm64" \
+  -DCMAKE_OSX_SYSROOT=iphoneos \
+  -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO
+
+cmake --build . --config Release
+
+# Copy framework to iOS project
+cp -r Release-iphoneos/native_engine.framework ../../ios/Frameworks/
+
+echo "iOS Device build completed successfully!"
+
+# Go back to project root
+cd ../..
+
+# Run Flutter for iOS Device
+echo "Running Flutter on iOS Device..."
+fvm flutter run
