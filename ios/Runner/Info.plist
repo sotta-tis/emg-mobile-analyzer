@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>BLEデバイスとの通信のためにBluetoothを使用します</string>
+	<key>NSCameraUsageDescription</key>
+	<string>画像分類のためにカメラを使用します</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>画像分類のためにフォトライブラリを使用します</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
