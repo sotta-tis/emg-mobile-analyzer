@@ -1,64 +1,75 @@
-# BLE通信、温度センサ、LED制御に必要なモジュールをインポート
-import bluetooth
+# Pico W: 内蔵温度センサー(ADC4)を 1kHz でサンプルし、9サンプルずつ BLE Notify
+# ★ 将来は analog pin (例: GPIO26/ADC0) に切り替える想定のコメントあり
+
+import struct, time
 from machine import ADC, Pin
-from utime import sleep_ms
+import ubluetooth as bt
 
-# Pico Wの内蔵LEDを初期化してONに（動作確認用）
-led = Pin("LED", Pin.OUT)
-led.on()
+# ====== 設定 ======
+NAME = "PICO-BLE-TEMP-HS"
+SERVICE_UUID = bt.UUID("12345678-1234-5678-1234-56789ABCDEF0")
+CHAR_UUID    = bt.UUID("12345678-1234-5678-1234-56789ABCDEF1")
 
-# BLEインスタンスを作成して有効化
-ble = bluetooth.BLE()
-ble.active(True)
+SAMPLING_HZ = 1000               # サンプリング周波数（1kHz）
+SAMPLES_PER_PACKET = 9           # 1通知あたりのサンプル数（seq2B + 9*2B = 20B）
+period_us = int(1_000_000 / SAMPLING_HZ)
 
-# BLEのサービスUUID（温度サービス）とキャラクタUUID（温度値）を定義
-TEMP_SERVICE_UUID = bluetooth.UUID("12345678-1234-5678-1234-56789abcdef0")
-TEMP_CHAR_UUID = bluetooth.UUID("12345678-1234-5678-1234-56789abcdef1")
+# ====== ADC ======
+adc = ADC(4)                     # 内蔵温度センサー
+# ★ 将来: 外部アナログに切り替える場合
+# adc = ADC(Pin(26))             # 例: GPIO26 = ADC0
 
-# 内部温度センサの初期化
-temp_adc = ADC(4)           # ADCチャンネル4はRP2040内部温度センサ
-conv = 3.3 / 65535          # ADC値を電圧に変換する係数
+# ====== BLE ======
+ble = bt.BLE(); ble.active(True)
+CHAR = (CHAR_UUID, bt.FLAG_NOTIFY)
+SERVICE = (SERVICE_UUID, (CHAR,))
+((CHAR_HANDLE,),) = ble.gatts_register_services((SERVICE,))
 
-# 温度を0.01℃単位の整数で返す関数（例：25.34℃ → 2534）
-def read_temp():
-    volts = temp_adc.read_u16() * conv
-    return int((27 - (volts - 0.706) / 0.001721) * 100)
+_CONN = None
+_IRQ_CENTRAL_CONNECT, _IRQ_CENTRAL_DISCONNECT = 1, 2
 
-# GATTサービス・キャラクタリスティックを登録し、ハンドルを取得
-((temp_handle,),) = ble.gatts_register_services((
-    (TEMP_SERVICE_UUID, ((TEMP_CHAR_UUID, bluetooth.FLAG_NOTIFY),)),
-))
+def _irq(event, data):
+    global _CONN
+    if event == _IRQ_CENTRAL_CONNECT:
+        _CONN, _, _ = data
+    elif event == _IRQ_CENTRAL_DISCONNECT:
+        _CONN = None
+        advertise()
 
-# アドバタイズデータ（スキャン時に見えるデバイス名）を作成
-name = b'PicoTemp'
-adv_data = bytearray(b'\x02\x01\x06')                   # 一般発見可能 + BLEのみサポート
-adv_data += bytearray((len(name) + 1, 0x09))            # 完全なローカルネーム
-adv_data += name                                        # デバイス名 "PicoTemp"
+ble.irq(_irq)
 
-# BLE接続ハンドル（接続先Centralを識別する番号）を格納する変数
-conn_handle = None
+def adv_payload(name, services=None):
+    p = bytearray()
+    nb = name.encode(); p += bytearray([len(nb)+1, 0x09]) + nb
+    if services:
+        for s in services:
+            u = bytes(s); p += bytearray([len(u)+1, 0x07]) + u
+    return p
 
-# BLEイベント（接続・切断）に応じてコネクションハンドルを設定
-def on_bt_irq(event, data):
-    global conn_handle
-    if event == 1:  # Central（スマホ/PC）から接続された
-        conn_handle = data[0]     # 接続相手のハンドルを記録
-        print("🔗 connected:", conn_handle)
-        led.on()                  # LED ON（接続中表示）
-    elif event == 2:  # 切断された
-        print("❌ disconnected")
-        conn_handle = None        # ハンドルをリセット
-        led.off()                 # LED OFF（切断表示）
+def advertise():
+    ble.gap_advertise(None)
+    ble.gap_advertise(100_000, adv_payload(NAME, [SERVICE_UUID]))
 
-# BLEのIRQハンドラを登録
-ble.irq(on_bt_irq)
+advertise()
 
-# アドバタイズ（広告）開始：デバイス名 "PicoTemp" を周囲に通知
-ble.gap_advertise(100_000, adv_data)  # 広告間隔は100ms
+# ====== 高速サンプリング & 送信 ======
+seq = 0
+buf = []                         # uint16 の配列（ADC生値 0..65535）
+next_t = time.ticks_us()
 
-# メインループ：接続中のみ温度を1秒ごとにNotifyで送信
 while True:
-    if conn_handle is not None:
-        temp = read_temp().to_bytes(2, "little")             # 温度を2バイトリトルエンディアンでエンコード
-        ble.gatts_notify(conn_handle, temp_handle, temp)     # 通知送信
-    sleep_ms(1000)
+    # 1) サンプル取得（1kHz）
+    raw = adc.read_u16()         # 0..65535（12bit相当が上位に格納）
+    buf.append(raw)
+
+    # 2) パケット満了でNotify（seq + 9サンプル = 20B）
+    if _CONN is not None and len(buf) >= SAMPLES_PER_PACKET:
+        payload = struct.pack("<H", seq) + struct.pack("<" + "H"*SAMPLES_PER_PACKET, *buf[:SAMPLES_PER_PACKET])
+        ble.gatts_notify(_CONN, CHAR_HANDLE, payload)
+        seq = (seq + 1) & 0xFFFF
+        del buf[:SAMPLES_PER_PACKET]
+
+    # 3) 1kHzタイミング維持
+    next_t = time.ticks_add(next_t, period_us)
+    while time.ticks_diff(next_t, time.ticks_us()) > 0:
+        pass
