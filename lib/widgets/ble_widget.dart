@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../services/ble_service.dart';
 import '../services/data_statistics.dart';
+import '../services/data_saver_service.dart';
+import '../services/recording_buffer.dart';
 import 'ble_chart_widget.dart';
 import 'ble_statistics_widget.dart';
+import 'recording_widget.dart';
+import 'session_control_widget.dart';
 
 class BleTempScannerWidget extends StatefulWidget {
   const BleTempScannerWidget({super.key});
@@ -15,6 +19,8 @@ class BleTempScannerWidget extends StatefulWidget {
 class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
   late final BleService _bleService;
   late final DataStatistics _statistics;
+  late final DataSaverService _dataSaver;
+  late final RecordingBuffer _recordingBuffer;
 
   String _statusText = '未接続';
   bool _isScanning = false;
@@ -25,6 +31,8 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
     super.initState();
     _statistics = DataStatistics(maxPoints: 500);
     _bleService = BleService();
+    _dataSaver = DataSaverService();
+    _recordingBuffer = RecordingBuffer();
 
     // コールバック設定
     _bleService.onStatusUpdate = (status) {
@@ -38,6 +46,9 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
         _statistics.addPacket(packet);
         _statusText = _statistics.getStatusString(packet);
       });
+
+      // 録画バッファにもデータを送信
+      _recordingBuffer.addBlePacket(packet);
     };
 
     _bleService.onError = (error) {
@@ -94,6 +105,7 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
   @override
   void dispose() {
     _bleService.dispose();
+    _recordingBuffer.dispose();
     super.dispose();
   }
 
@@ -106,6 +118,20 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
         children: [
           // ステータス表示
           _buildStatusCard(),
+
+          const SizedBox(height: 16),
+
+          // セッション管理
+          SessionControlWidget(dataSaver: _dataSaver),
+
+          const SizedBox(height: 16),
+
+          // 録画制御
+          RecordingWidget(
+            recordingBuffer: _recordingBuffer,
+            dataSaver: _dataSaver,
+            isConnected: _bleService.isConnected,
+          ),
 
           const SizedBox(height: 16),
 
