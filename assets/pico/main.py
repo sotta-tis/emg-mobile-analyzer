@@ -1,25 +1,19 @@
-# Pico W: 内蔵温度センサー(ADC4)を 1kHz でサンプルし、9サンプルずつ BLE Notify
-# ★ 将来は analog pin (例: GPIO26/ADC0) に切り替える想定のコメントあり
-
 import struct, time
 from machine import ADC, Pin
 import ubluetooth as bt
 
-# ====== 設定 ======
-NAME = "PICO-BLE-TEMP-HS"
+# ====== settings ======
+NAME = "Pico"
 SERVICE_UUID = bt.UUID("12345678-1234-5678-1234-56789ABCDEF0")
 CHAR_UUID    = bt.UUID("12345678-1234-5678-1234-56789ABCDEF1")
 
-SAMPLING_HZ = 1000               # サンプリング周波数（1kHz）
-SAMPLES_PER_PACKET = 9           # 1通知あたりのサンプル数（seq2B + 9*2B = 20B）
+SAMPLING_HZ = 1000    
+SAMPLES_PER_PACKET = 10         
 period_us = int(1_000_000 / SAMPLING_HZ)
+NORMALIZE_DATA = True           
 
-# ====== ADC ======
-adc = ADC(4)                     # 内蔵温度センサー
-# ★ 将来: 外部アナログに切り替える場合
-# adc = ADC(Pin(26))             # 例: GPIO26 = ADC0
+adc = ADC(Pin(26))       
 
-# ====== BLE ======
 ble = bt.BLE(); ble.active(True)
 CHAR = (CHAR_UUID, bt.FLAG_NOTIFY)
 SERVICE = (SERVICE_UUID, (CHAR,))
@@ -52,24 +46,32 @@ def advertise():
 
 advertise()
 
-# ====== 高速サンプリング & 送信 ======
+# ====== main loop ======
 seq = 0
-buf = []                         # uint16 の配列（ADC生値 0..65535）
+buf = []                      
 next_t = time.ticks_us()
 
 while True:
     # 1) サンプル取得（1kHz）
-    raw = adc.read_u16()         # 0..65535（12bit相当が上位に格納）
-    buf.append(raw)
+    raw = adc.read_u16()       
+    
+    if NORMALIZE_DATA:
+        normalized = raw / 65535.0
+        buf.append(normalized)
+    else:
+        buf.append(raw)
 
-    # 2) パケット満了でNotify（seq + 9サンプル = 20B）
+    # 2) パケット満了でNotify
     if _CONN is not None and len(buf) >= SAMPLES_PER_PACKET:
-        payload = struct.pack("<H", seq) + struct.pack("<" + "H"*SAMPLES_PER_PACKET, *buf[:SAMPLES_PER_PACKET])
+        if NORMALIZE_DATA:
+            payload = struct.pack("<H", seq) + struct.pack("<" + "f"*SAMPLES_PER_PACKET, *buf[:SAMPLES_PER_PACKET])
+        else:
+            payload = struct.pack("<H", seq) + struct.pack("<" + "H"*SAMPLES_PER_PACKET, *buf[:SAMPLES_PER_PACKET])
+        
         ble.gatts_notify(_CONN, CHAR_HANDLE, payload)
         seq = (seq + 1) & 0xFFFF
         del buf[:SAMPLES_PER_PACKET]
 
-    # 3) 1kHzタイミング維持
     next_t = time.ticks_add(next_t, period_us)
     while time.ticks_diff(next_t, time.ticks_us()) > 0:
         pass
