@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:emg_mobile_analyzer/widgets/ffi_sample.dart';
-import 'package:emg_mobile_analyzer/widgets/ble_widget.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -28,17 +27,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 title: const Text('BLE高速データ取得'),
                 subtitle: const Text('Pico Wからの1kHzサンプリングデータ'),
                 trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    builder:
-                        (context) => SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.9,
-                          child: const BleTempScannerWidget(),
-                        ),
-                  );
-                },
+                onTap: () => context.go('/ble'),
               ),
             ),
 

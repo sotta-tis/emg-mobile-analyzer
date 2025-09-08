@@ -161,4 +161,10 @@ class BleService {
   bool get isConnected => _isConnected;
   BluetoothDevice? get targetDevice => _targetDevice;
   BluetoothCharacteristic? get characteristic => _characteristic;
+
+  // リソース解放
+  void dispose() {
+    disconnect(); // BLE接続を確実に切断
+    print('🔵 BleService: BleService disposed');
+  }
 }
