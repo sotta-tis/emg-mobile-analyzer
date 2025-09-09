@@ -222,16 +222,16 @@ class _RecordingWidgetState extends State<RecordingWidget>
 
   Icon _getIconForLabel(String label) {
     switch (label.toLowerCase()) {
-      case 'tripod':
+      case 'paper':
         return const Icon(Icons.touch_app);
-      case 'fist':
+      case 'rock':
         return const Icon(Icons.sports_mma);
-      case 'open':
+      case 'scissors':
         return const Icon(Icons.pan_tool);
       case 'pinch':
         return const Icon(Icons.gesture);
-      case 'point':
-        return const Icon(Icons.touch_app);
+      case 'flextion':
+        return const Icon(Icons.back_hand);
       case 'rest':
         return const Icon(Icons.airline_seat_recline_normal);
       default:
