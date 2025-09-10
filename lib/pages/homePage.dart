@@ -24,7 +24,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.bluetooth),
-                title: const Text('BLE高速データ取得'),
+                title: const Text('Dev-BLE'),
                 subtitle: const Text('Pico Wからの1kHzサンプリングデータ'),
                 trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () => context.go('/ble'),
