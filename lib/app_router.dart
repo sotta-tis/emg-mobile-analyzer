@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'shells/templateShell.dart';
-import 'pages/homePage.dart';
+import 'shells/template_shell.dart';
+import 'pages/home_page.dart';
 import 'widgets/core_ml_widget.dart';
 import 'widgets/ble_widget.dart';
 
