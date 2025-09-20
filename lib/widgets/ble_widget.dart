@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:emg_mobile_analyzer/services/data_saver_service.dart';
+import 'package:emg_mobile_analyzer/services/recording_buffer.dart';
 import 'package:emg_mobile_analyzer/services/ble_service.dart';
 import 'package:emg_mobile_analyzer/services/data_statistics.dart';
 import 'ble_chart_widget.dart';
 import 'ble_statistics_widget.dart';
+import 'recording_widget.dart';
+import 'session_control_widget.dart';
 
 class BleTempScannerWidget extends StatefulWidget {
   const BleTempScannerWidget({super.key});
@@ -15,6 +19,8 @@ class BleTempScannerWidget extends StatefulWidget {
 class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
   late final BleService _bleService;
   late final DataStatistics _statistics;
+  late final DataSaverService _dataSaver;
+  late final RecordingBuffer _recordingBuffer;
 
   String _statusText = '未接続';
   bool _isScanning = false;
@@ -25,6 +31,8 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
     super.initState();
     _statistics = DataStatistics(maxPoints: 500);
     _bleService = BleService();
+    _dataSaver = DataSaverService();
+    _recordingBuffer = RecordingBuffer();
 
     // コールバック設定
     _bleService.onStatusUpdate = (status) {
@@ -38,6 +46,9 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
         _statistics.addPacket(packet);
         _statusText = _statistics.getStatusString(packet);
       });
+
+      // 録画バッファにもデータを送信
+      _recordingBuffer.addBlePacket(packet);
     };
 
     _bleService.onError = (error) {
@@ -94,6 +105,7 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
   @override
   void dispose() {
     _bleService.dispose();
+    _recordingBuffer.dispose();
     super.dispose();
   }
 
@@ -106,14 +118,29 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
         children: [
           // ステータス表示
           _buildStatusCard(),
-
-          const SizedBox(height: 16),
-
           // デバイス一覧
           if (_scanResults.isNotEmpty) ...[
             _buildDeviceListCard(),
             const SizedBox(height: 16),
           ],
+          // コントロールボタン
+          _buildControlButtons(),
+
+          const SizedBox(height: 16),
+
+          // セッション管理
+          SessionControlWidget(dataSaver: _dataSaver),
+
+          const SizedBox(height: 16),
+
+          // 録画制御
+          RecordingWidget(
+            recordingBuffer: _recordingBuffer,
+            dataSaver: _dataSaver,
+            isConnected: _bleService.isConnected,
+          ),
+
+          const SizedBox(height: 16),
 
           // 統計情報
           Card(
@@ -132,10 +159,6 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'リアルタイムデータ',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
                   const SizedBox(height: 8),
                   BleChartWidget(
                     dataHistory: _statistics.dataHistory,
@@ -154,9 +177,6 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
             _buildDebugCard(),
             const SizedBox(height: 16),
           ],
-
-          // コントロールボタン
-          _buildControlButtons(),
         ],
       ),
     );
@@ -170,7 +190,7 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'BLE高速データ取得',
+              'Dev-BLE',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

@@ -1,0 +1,1 @@
+{"schema_version":"1.0","session_id":"session_2025-09-08T16-24-42-479232Z","sampling":{"sample_rate_hz":1000,"samples_per_packet":10,"time_base":"unix_epoch_ms"},"preprocess":{"normalize":{"method":"minmax","min":0.0,"max":1.0}},"sample_duration_ms":5000,"labels":["tripod","fist","open","pinch","point","rest"]}
