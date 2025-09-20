@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/data_statistics.dart';
+import 'package:emg_mobile_analyzer/services/data_statistics.dart';
 
 class BleStatisticsWidget extends StatelessWidget {
   final DataStatistics statistics;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import '../services/ble_service.dart';
-import '../services/data_statistics.dart';
+import 'package:emg_mobile_analyzer/services/ble_service.dart';
+import 'package:emg_mobile_analyzer/services/data_statistics.dart';
 import 'ble_chart_widget.dart';
 import 'ble_statistics_widget.dart';
 
