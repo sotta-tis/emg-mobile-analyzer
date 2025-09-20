@@ -28,20 +28,47 @@ class BleService {
   BluetoothDevice? _targetDevice;
   BluetoothCharacteristic? _characteristic;
   bool _isConnected = false;
+  bool _isInitialized = false;
 
   // コールバック
   Function(String)? onStatusUpdate;
   Function(BleDataPacket)? onDataReceived;
   Function(String)? onError;
 
+  // コンストラクタでBLE初期化
+  BleService() {
+    _initializeBle();
+  }
+
+  // BLE初期化
+  Future<void> _initializeBle() async {
+    try {
+      final available = await FlutterBluePlus.isSupported;
+      if (!available) {
+        onError?.call('❌ この端末はBluetoothをサポートしていません');
+        return;
+      }
+
+      final isOn = await FlutterBluePlus.isOn;
+      if (!isOn) {
+        onStatusUpdate?.call('⚠️ Bluetoothを有効にしてください');
+        return;
+      }
+
+      _isInitialized = true;
+      onStatusUpdate?.call('✅ BLE初期化完了');
+    } catch (e) {
+      onError?.call('❌ BLE初期化エラー: $e');
+    }
+  }
+
   // スキャン開始
   Future<void> startScan() async {
-    final available = await FlutterBluePlus.isSupported;
-    final isOn = await FlutterBluePlus.isOn;
-
-    if (!available || !isOn) {
-      onError?.call('❌ Bluetooth未初期化またはOFF');
-      return;
+    if (!_isInitialized) {
+      await _initializeBle();
+      if (!_isInitialized) {
+        return;
+      }
     }
 
     onStatusUpdate?.call('BLEデバイススキャン中...');
@@ -159,6 +186,7 @@ class BleService {
 
   // ゲッター
   bool get isConnected => _isConnected;
+  bool get isInitialized => _isInitialized;
   BluetoothDevice? get targetDevice => _targetDevice;
   BluetoothCharacteristic? get characteristic => _characteristic;
 
