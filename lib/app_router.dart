@@ -19,7 +19,7 @@ final router = GoRouter(
           path: '/ble',
           builder:
               (_, __) => Scaffold(
-                appBar: AppBar(title: const Text('BLE高速データ取得')),
+                appBar: AppBar(title: const Text('DEV-BLE')),
                 body: const BleTempScannerWidget(),
               ),
         ),

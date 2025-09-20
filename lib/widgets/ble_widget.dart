@@ -118,6 +118,13 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
         children: [
           // ステータス表示
           _buildStatusCard(),
+          // デバイス一覧
+          if (_scanResults.isNotEmpty) ...[
+            _buildDeviceListCard(),
+            const SizedBox(height: 16),
+          ],
+          // コントロールボタン
+          _buildControlButtons(),
 
           const SizedBox(height: 16),
 
@@ -134,12 +141,6 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
           ),
 
           const SizedBox(height: 16),
-
-          // デバイス一覧
-          if (_scanResults.isNotEmpty) ...[
-            _buildDeviceListCard(),
-            const SizedBox(height: 16),
-          ],
 
           // 統計情報
           Card(
@@ -158,10 +159,6 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'リアルタイムデータ',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
                   const SizedBox(height: 8),
                   BleChartWidget(
                     dataHistory: _statistics.dataHistory,
@@ -180,9 +177,6 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
             _buildDebugCard(),
             const SizedBox(height: 16),
           ],
-
-          // コントロールボタン
-          _buildControlButtons(),
         ],
       ),
     );
@@ -196,7 +190,7 @@ class _BleTempScannerWidgetState extends State<BleTempScannerWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'BLE高速データ取得',
+              'Dev-BLE',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
