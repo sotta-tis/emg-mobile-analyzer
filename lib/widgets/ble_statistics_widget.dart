@@ -4,7 +4,7 @@ import 'package:emg_mobile_analyzer/services/data_statistics.dart';
 class BleStatisticsWidget extends StatelessWidget {
   final DataStatistics statistics;
 
-  BleStatisticsWidget({Key? key, required this.statistics}) : super(key: key);
+  const BleStatisticsWidget({super.key, required this.statistics});
 
   @override
   Widget build(BuildContext context) {

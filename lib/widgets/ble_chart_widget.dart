@@ -7,11 +7,11 @@ class BleChartWidget extends StatelessWidget {
   final bool normalizeData;
 
   const BleChartWidget({
-    Key? key,
+    super.key,
     required this.dataHistory,
     required this.maxPoints,
     this.normalizeData = true,
-  }) : super(key: key);
+  });
 
   List<FlSpot> _buildSpots() {
     return dataHistory
