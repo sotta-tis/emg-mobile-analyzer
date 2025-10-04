@@ -42,6 +42,7 @@ dependencies:
   flutter_slidable: ^3.0.0
   flutter_blue_plus: ^1.35.5
   image_picker: ^1.0.4  # 画像選択用
+  permission_handler: ^11.3.1  # 権限管理用
   csv: ^6.0.0  # CSV出力用
   share_plus: ^10.0.0  # データ共有用
   archive: ^3.6.1  # ZIP作成用
