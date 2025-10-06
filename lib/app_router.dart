@@ -4,6 +4,7 @@ import 'shells/template_shell.dart';
 import 'pages/home_page.dart';
 import 'widgets/core_ml_widget.dart';
 import 'widgets/ble_widget.dart';
+import 'widgets/audio_analysis_widget.dart';
 
 final router = GoRouter(
   initialLocation: '/home',
@@ -15,6 +16,10 @@ final router = GoRouter(
       routes: [
         GoRoute(path: '/home', builder: (_, __) => const HomePage()),
         GoRoute(path: '/core-ml', builder: (_, __) => const CoreMLWidget()),
+        GoRoute(
+          path: '/audio-analysis',
+          builder: (_, __) => const AudioAnalysisWidget(),
+        ),
         GoRoute(
           path: '/ble',
           builder:
