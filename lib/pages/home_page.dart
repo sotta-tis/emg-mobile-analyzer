@@ -46,6 +46,19 @@ class _HomePageState extends ConsumerState<HomePage> {
 
             const SizedBox(height: 16),
 
+            // 音声分析セクション
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.mic),
+                title: const Text('音声分析'),
+                subtitle: const Text('リアルタイム音声分類と波形表示'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () => context.go('/audio-analysis'),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // FFIテストセクション
             const Card(
               child: Padding(
