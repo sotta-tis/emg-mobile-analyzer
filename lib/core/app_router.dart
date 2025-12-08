@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'shells/template_shell.dart';
-import 'pages/home_page.dart';
-import 'widgets/core_ml_widget.dart';
-import 'widgets/ble_widget.dart';
-import 'widgets/audio_analysis_widget.dart';
+import 'package:emg_mobile_analyzer/shells/template_shell.dart';
+import 'package:emg_mobile_analyzer/pages/home_page.dart';
+import 'package:emg_mobile_analyzer/features/core_ml/widgets/core_ml_widget.dart';
+import 'package:emg_mobile_analyzer/features/ble/widgets/ble_widget.dart';
+import 'package:emg_mobile_analyzer/features/audio_analysis/widgets/audio_analysis_widget.dart';
 
 final router = GoRouter(
   initialLocation: '/home',

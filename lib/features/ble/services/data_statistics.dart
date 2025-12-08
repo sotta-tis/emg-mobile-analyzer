@@ -1,4 +1,4 @@
-import 'ble_service.dart';
+import 'package:emg_mobile_analyzer/features/ble/services/ble_service.dart';
 
 class DataStatistics {
   final int maxPoints;

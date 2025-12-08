@@ -164,7 +164,7 @@ class BleService {
 
   // リソース解放
   void dispose() {
-    disconnect(); // BLE接続を確実に切断
+    disconnect();
     print('🔵 BleService: BleService disposed');
   }
 }

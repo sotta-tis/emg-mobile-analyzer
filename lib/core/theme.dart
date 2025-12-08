@@ -1,4 +1,3 @@
-// theme.dart
 import 'package:flutter/material.dart';
 
 /// オレンジ = アクセントカラー、紺色 = ベースカラー

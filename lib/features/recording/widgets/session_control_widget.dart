@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/data_saver_service.dart';
+import 'package:emg_mobile_analyzer/features/recording/services/data_saver_service.dart';
 
 class SessionControlWidget extends StatefulWidget {
   final DataSaverService dataSaver;

@@ -1,9 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/core_ml_service.dart';
-
-// Core ML機能のUI（音声機能を除く）
+import 'package:emg_mobile_analyzer/features/core_ml/services/core_ml_service.dart';
 
 class CoreMLWidget extends StatefulWidget {
   const CoreMLWidget({super.key});

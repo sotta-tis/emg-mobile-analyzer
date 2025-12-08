@@ -45,7 +45,7 @@ class _FfiTestWidgetState extends State<FfiTestWidget> {
   void _calculate() {
     final a = int.tryParse(_aController.text) ?? 0;
     final b = int.tryParse(_bController.text) ?? 0;
-    final sum = add(a, b); // C++のadd関数を呼び出し
+    final sum = add(a, b);
     setState(() {
       result = sum;
     });

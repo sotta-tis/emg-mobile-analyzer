@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/data_saver_service.dart';
-import '../services/recording_buffer.dart';
+import 'package:emg_mobile_analyzer/features/recording/services/data_saver_service.dart';
+import 'package:emg_mobile_analyzer/features/recording/services/recording_buffer.dart';
 
 class RecordingWidget extends StatefulWidget {
   final RecordingBuffer recordingBuffer;

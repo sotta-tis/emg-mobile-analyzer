@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
-// Core ML連携用のサービス
-
 class CoreMLService {
   static const MethodChannel _channel = MethodChannel('core_ml_channel');
   static bool _isAudioClassificationActive = false;

@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'ble_service.dart';
-import 'data_saver_service.dart';
+import 'package:emg_mobile_analyzer/features/ble/services/ble_service.dart';
+import 'package:emg_mobile_analyzer/features/recording/services/data_saver_service.dart';
 
 class RecordingBuffer {
   static const int recordingDurationMs = 5000; // 5秒間
