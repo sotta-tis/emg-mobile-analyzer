@@ -23,16 +23,16 @@ class TemplateShell extends StatelessWidget {
         onTap: (i) {
           switch (i) {
             case 0:
-              context.go('/home');
+              context.go('/');
+              break;
+            case 1:
+              context.go('/emg');
               break;
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'add',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '/'),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'EMG'),
         ],
       ),
     );
