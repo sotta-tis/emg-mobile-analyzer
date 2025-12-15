@@ -23,7 +23,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 # Reuse the same feature extractor as dataset creation
-from assets.devOps.record_audio_dataset import extract_10_features, record_clip
+from record_audio_dataset import extract_10_features, record_clip
 
 
 def main() -> None:
