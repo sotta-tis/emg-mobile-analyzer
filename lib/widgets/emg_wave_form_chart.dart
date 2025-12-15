@@ -13,6 +13,8 @@ class EmgWaveformChart extends StatefulWidget {
     this.downsample = 1, // 2なら2点に1点、4なら4点に1点表示
     this.showGrid = true,
     this.showLeftTitles = true,
+    this.fixedMinY,
+    this.fixedMaxY,
   });
 
   /// 外側で保持している波形バッファを返す関数
@@ -29,6 +31,10 @@ class EmgWaveformChart extends StatefulWidget {
 
   final bool showGrid;
   final bool showLeftTitles;
+
+  /// 縦軸を固定したい場合に指定（例: -2.0, 2.0）。未指定なら自動スケーリング。
+  final double? fixedMinY;
+  final double? fixedMaxY;
 
   @override
   State<EmgWaveformChart> createState() => _EmgWaveformChartState();
@@ -79,18 +85,32 @@ class _EmgWaveformChartState extends State<EmgWaveformChart> {
     final int n = (view.length / ds).ceil();
 
     // min/max を求める（Y軸レンジ）
-    double minY = double.infinity;
-    double maxY = -double.infinity;
-    for (int i = 0; i < view.length; i += ds) {
-      final v = view[i];
-      if (v < minY) minY = v;
-      if (v > maxY) maxY = v;
+    double minY;
+    double maxY;
+    if (widget.fixedMinY != null && widget.fixedMaxY != null) {
+      minY = widget.fixedMinY!;
+      maxY = widget.fixedMaxY!;
+      // min==max でレンジゼロになるのを防ぐ
+      if (minY == maxY) {
+        minY -= 0.5;
+        maxY += 0.5;
+      }
+    } else {
+      double localMin = double.infinity;
+      double localMax = -double.infinity;
+      for (int i = 0; i < view.length; i += ds) {
+        final v = view[i];
+        if (v < localMin) localMin = v;
+        if (v > localMax) localMax = v;
+      }
+      if (!localMin.isFinite || !localMax.isFinite) {
+        return const Center(child: Text('データが不正です'));
+      }
+      final ySpan = (localMax - localMin).abs();
+      final yMargin = ySpan < 1e-6 ? 0.5 : 0.1 * ySpan;
+      minY = localMin - yMargin;
+      maxY = localMax + yMargin;
     }
-    if (!minY.isFinite || !maxY.isFinite) {
-      return const Center(child: Text('データが不正です'));
-    }
-    final ySpan = (maxY - minY).abs();
-    final yMargin = ySpan < 1e-6 ? 0.5 : 0.1 * ySpan;
 
     // spots を生成（必要点数のみ）
     final spots = List<FlSpot>.generate(n, (j) {
@@ -103,8 +123,8 @@ class _EmgWaveformChartState extends State<EmgWaveformChart> {
       LineChartData(
         minX: 0,
         maxX: (n - 1).toDouble(),
-        minY: minY - yMargin,
-        maxY: maxY + yMargin,
+        minY: minY,
+        maxY: maxY,
         lineBarsData: [
           LineChartBarData(
             spots: spots,

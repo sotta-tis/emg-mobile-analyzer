@@ -12,6 +12,7 @@ import 'package:emg_mobile_analyzer/services/emg_feature_extractor.dart';
 import 'package:emg_mobile_analyzer/widgets/emg_wave_form_chart.dart';
 import 'package:emg_mobile_analyzer/widgets/ble_manager_panel.dart';
 import 'package:emg_mobile_analyzer/widgets/emg_features_panel.dart';
+import 'package:emg_mobile_analyzer/widgets/emg_label_record_panel.dart';
 
 class EmgScreen extends ConsumerStatefulWidget {
   const EmgScreen({super.key});
@@ -72,31 +73,41 @@ class _EmgScreenState extends ConsumerState<EmgScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('BLE Manager + Waveform')),
-      body: Column(
-        children: [
-          // 上：BLE管理UI
-          const BleManagerPanel(),
+      body: CustomScrollView(
+        slivers: [
+          const SliverToBoxAdapter(child: BleManagerPanel()),
+          const SliverToBoxAdapter(child: Divider(height: 1)),
 
-          const Divider(height: 1),
-
-          // 中：特徴量パネル（あなたが作ったWidget）
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: EmgFeaturesPanel(),
-          ),
-
-          const Divider(height: 1),
-
-          // 下：チャート
-          Expanded(
+          // 波形チャート（高さを固定してスクロール可能に）
+          SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: EmgWaveformChart(
-                dataSource: () => _data,
-                maxPoints: maxPoints,
-                refreshInterval: const Duration(milliseconds: 50), // 20fps
-                downsample: 2, // 重ければ 4 に
+              child: SizedBox(
+                height: 260, // 画面に収まる程度の高さ。必要なら調整
+                child: EmgWaveformChart(
+                  dataSource: () => _data,
+                  maxPoints: maxPoints,
+                  refreshInterval: const Duration(milliseconds: 50), // 20fps
+                  downsample: 2, // 重ければ 4 に
+                  fixedMinY: -1.0, // 縦軸固定（データ振幅に合わせて調整可）
+                  fixedMaxY: 1.0,
+                ),
               ),
+            ),
+          ),
+
+          // 特徴量パネル
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: EmgFeaturesPanel(),
+            ),
+          ),
+          // ラベル付けパネル
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: EmgLabelRecordPanel(),
             ),
           ),
         ],
