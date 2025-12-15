@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dart:typed_data';
+
 class EmgFeatures {
   final double mva; // Mean Absolute Value
   final double cps; // Center Power Spectrum (スペクトル重心周波数)
@@ -37,6 +39,17 @@ class _FreqFeatures {
 }
 
 class EmgFeatureExtractor {
+  // 正規化データを返す
+  static Float64List computeNormalizedVector(
+    List<double> samples, {
+    required FeatureNormalizer normalizer,
+    double fs = 1000.0,
+    double lfoCutoffHz = 150.0,
+  }) {
+    final f = compute(samples, fs: fs, lfoCutoffHz: lfoCutoffHz);
+    return normalizer.normalize10(f.toVector());
+  }
+
   /// 1ウィンドウ分の sEMG 生データから特徴量を計算する
   static EmgFeatures compute(
     List<double> x, {
@@ -147,46 +160,143 @@ class EmgFeatureExtractor {
     );
   }
 
-  // ナイーブな DFT でパワースペクトルを計算し、
-  // CPS (スペクトル重心周波数) と LFO 比を求める
+  // ===== FFT working buffers (reused) =====
+  static int _fftN = 0;
+  static Float64List? _re;
+  static Float64List? _im;
+  static Float64List? _hann; // optional window
+
+  static int _nextPow2(int n) {
+    int p = 1;
+    while (p < n) p <<= 1;
+    return p;
+  }
+
+  static void _ensureFftBuffers(int n0) {
+    final n = _nextPow2(n0); // 150 -> 256
+    if (_fftN == n && _re != null && _im != null && _hann != null) return;
+
+    _fftN = n;
+    _re = Float64List(n);
+    _im = Float64List(n);
+
+    // Hann window for n0 (not n). We'll store length n0 window, reuse if same n0.
+    // ここでは n0 が変わる可能性が低い想定(150固定)ならOK
+    _hann = Float64List(n0);
+    if (n0 > 1) {
+      for (int i = 0; i < n0; i++) {
+        _hann![i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (n0 - 1)));
+      }
+    } else if (n0 == 1) {
+      _hann![0] = 1.0;
+    }
+  }
+
+  static void _fftInPlace(Float64List re, Float64List im, int n) {
+    // bit reversal
+    for (int i = 1, j = 0; i < n; i++) {
+      int bit = n >> 1;
+      for (; (j & bit) != 0; bit >>= 1) {
+        j ^= bit;
+      }
+      j ^= bit;
+      if (i < j) {
+        final tr = re[i];
+        re[i] = re[j];
+        re[j] = tr;
+        final ti = im[i];
+        im[i] = im[j];
+        im[j] = ti;
+      }
+    }
+
+    // FFT
+    for (int len = 2; len <= n; len <<= 1) {
+      final ang = -2.0 * math.pi / len;
+      final wlenRe = math.cos(ang);
+      final wlenIm = math.sin(ang);
+
+      for (int i = 0; i < n; i += len) {
+        double wRe = 1.0;
+        double wIm = 0.0;
+
+        final half = len >> 1;
+        for (int j = 0; j < half; j++) {
+          final uRe = re[i + j];
+          final uIm = im[i + j];
+
+          final vRe0 = re[i + j + half];
+          final vIm0 = im[i + j + half];
+
+          // v * w
+          final vRe = vRe0 * wRe - vIm0 * wIm;
+          final vIm = vRe0 * wIm + vIm0 * wRe;
+
+          // u + v
+          re[i + j] = uRe + vRe;
+          im[i + j] = uIm + vIm;
+
+          // u - v
+          re[i + j + half] = uRe - vRe;
+          im[i + j + half] = uIm - vIm;
+
+          // w *= wlen
+          final nextWRe = wRe * wlenRe - wIm * wlenIm;
+          final nextWIm = wRe * wlenIm + wIm * wlenRe;
+          wRe = nextWRe;
+          wIm = nextWIm;
+        }
+      }
+    }
+  }
+
   static _FreqFeatures _computeFrequencyFeatures(
     List<double> x, {
     required double fs,
     required double lfoCutoffHz,
   }) {
-    final n = x.length;
-    if (n == 0) {
-      return _FreqFeatures(0.0, 0.0);
+    final n0 = x.length;
+    if (n0 == 0) return _FreqFeatures(0.0, 0.0);
+
+    _ensureFftBuffers(n0);
+    final re = _re!;
+    final im = _im!;
+    final hann = _hann!;
+
+    final n = _fftN;
+
+    // load input with window, zero pad
+    for (int i = 0; i < n0; i++) {
+      re[i] = x[i] * hann[i];
+      im[i] = 0.0;
+    }
+    for (int i = n0; i < n; i++) {
+      re[i] = 0.0;
+      im[i] = 0.0;
     }
 
-    final int nFreq = n ~/ 2; // ナイキストまで
+    _fftInPlace(re, im, n);
 
-    double totalPower = 0;
-    double weightedFreqSum = 0;
-    double lowFreqPower = 0;
+    final int nFreq = n ~/ 2; // Nyquistまで
+    double totalPower = 0.0;
+    double weightedFreqSum = 0.0;
+    double lowFreqPower = 0.0;
 
-    for (int k = 0; k <= nFreq; k++) {
-      double re = 0;
-      double im = 0;
-      for (int t = 0; t < n; t++) {
-        final angle = -2.0 * math.pi * k * t / n;
-        re += x[t] * math.cos(angle);
-        im += x[t] * math.sin(angle);
-      }
-      final power = re * re + im * im;
+    // DC(0Hz)含める/含めないは好み。CPSはDCが強いと下がるので、
+    // ここでは k=1 から（DC除外）にしておくこと
+    for (int k = 1; k <= nFreq; k++) {
+      final rr = re[k];
+      final ii = im[k];
+      final power = rr * rr + ii * ii;
       final freq = fs * k / n;
 
       totalPower += power;
       weightedFreqSum += freq * power;
-
-      if (freq <= lfoCutoffHz) {
-        lowFreqPower += power;
-      }
+      if (freq <= lfoCutoffHz) lowFreqPower += power;
     }
 
-    final cps = (totalPower > 0) ? (weightedFreqSum / totalPower) : 0.0;
-    final lfoRatio = (totalPower > 0) ? (lowFreqPower / totalPower) : 0.0;
-
+    final cps = totalPower > 0 ? (weightedFreqSum / totalPower) : 0.0;
+    final lfoRatio = totalPower > 0 ? (lowFreqPower / totalPower) : 0.0;
     return _FreqFeatures(cps, lfoRatio);
   }
 
@@ -280,5 +390,25 @@ class EmgFeatureExtractor {
       x[i] = A[i][n];
     }
     return x;
+  }
+}
+
+class FeatureNormalizer {
+  final Float64List mu; // length 10
+  final Float64List sd; // length 10
+
+  const FeatureNormalizer(this.mu, this.sd);
+
+  Float64List normalize10(List<double> x) {
+    if (x.length != 10) {
+      throw ArgumentError('Expected 10-dim feature vector, got ${x.length}');
+    }
+    const eps = 1e-6;
+    final out = Float64List(10);
+    for (int i = 0; i < 10; i++) {
+      final s = sd[i].abs() < eps ? eps : sd[i];
+      out[i] = (x[i] - mu[i]) / s;
+    }
+    return out;
   }
 }
