@@ -3,7 +3,9 @@ import 'package:emg_mobile_analyzer/services/ble_service.dart';
 
 final bleServiceProvider = Provider<BleService>((ref) {
   final service = BleService();
-  ref.onDispose(service.dispose);
+  ref.onDispose(() {
+    service.dispose();
+  });
   return service;
 });
 
