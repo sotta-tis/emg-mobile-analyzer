@@ -17,8 +17,8 @@ class _DemoDatasetInferenceCardState
     extends ConsumerState<DemoDatasetInferenceCard> {
   bool _busy = false;
   String _status = '未実行';
-  int _total = 0;
-  int _correct = 0;
+  int total = 0;
+  int correct = 0;
 
   static const _labels = ['paper', 'cizer', 'rock', 'pinch'];
   static final _labelToIndex = {
@@ -29,8 +29,8 @@ class _DemoDatasetInferenceCardState
     setState(() {
       _busy = true;
       _status = '実行中...';
-      _total = 0;
-      _correct = 0;
+      total = 0;
+      correct = 0;
     });
 
     try {
@@ -64,8 +64,8 @@ class _DemoDatasetInferenceCardState
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _total = total;
-        _correct = correct;
+        total = total;
+        correct = correct;
         final acc = total == 0 ? 0.0 : correct / total * 100.0;
         _status = '完了: $correct / $total (acc ${acc.toStringAsFixed(1)}%)';
       });
