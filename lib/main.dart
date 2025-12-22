@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:emg_mobile_analyzer/app_router.dart';
-import 'package:emg_mobile_analyzer/theme.dart';
+import 'package:emg_mobile_analyzer/core/app_router.dart';
+import 'package:emg_mobile_analyzer/core/theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -20,3 +20,4 @@ class MyApp extends ConsumerWidget {
     );
   }
 }
+

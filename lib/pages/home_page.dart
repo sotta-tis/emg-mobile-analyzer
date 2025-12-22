@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:emg_mobile_analyzer/widgets/ffi_sample.dart';
+import 'package:emg_mobile_analyzer/shared/widgets/ffi_sample.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
