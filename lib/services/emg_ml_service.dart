@@ -9,8 +9,7 @@ class EmgMlService {
   bool _ready = false;
 
   Future<void> initModel({
-    String assetPath =
-        'assets/devOps/updatable_dense_10_24_4/emg/UpdatableClassifier_trained_emg.mlmodel',
+    String assetPath = 'assets/model/inference_model.mlmodel',
   }) async {
     if (_ready) return;
 

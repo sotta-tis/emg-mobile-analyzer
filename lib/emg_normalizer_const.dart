@@ -41,8 +41,7 @@ FeatureNormalizer get emgNormalizer => _emgNormalizer;
 
 /// アセットから平均値と偏差( `mu` / `sd` )を読み込み、グローバルな正規化器を更新する。a
 Future<FeatureNormalizer> loadEmgNormalizerFromAsset({
-  String assetPath =
-      'assets/devOps/updatable_dense_10_24_4/emg/normalizer.json',
+  String assetPath = 'assets/model/normalizer.json',
 }) async {
   if (_normalizerLoaded) return _emgNormalizer;
 

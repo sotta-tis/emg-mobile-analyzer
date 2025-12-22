@@ -74,10 +74,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/devOps/updatable_dense_10_24_4/emg/UpdatableClassifier_trained_emg.mlmodel
-    - assets/devOps/updatable_dense_10_24_4/emg/trained_weights_emg.npz
-    - assets/devOps/updatable_dense_10_24_4/emg/normalizer.json
-    - assets/devOps/updatable_dense_10_24_4/emg_dataset.json
+    - assets/model/inference_model.mlmodel 
+    - assets/model/normalizer.json
+    # demo実行用のdataset必要なら使用
+    - assets/model/demo_dataset.json 
 
   # To add assets to your application, add an assets section, like this:
   # assets:
