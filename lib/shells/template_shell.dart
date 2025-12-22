@@ -28,11 +28,15 @@ class TemplateShell extends StatelessWidget {
             case 1:
               context.go('/emg');
               break;
+            case 2:
+              context.go('/dev');
+              break;
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '/'),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'EMG'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Dev'),
         ],
       ),
     );
