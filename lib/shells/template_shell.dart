@@ -14,7 +14,9 @@ class TemplateShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int index = 0;
-    if (currentPath.startsWith('/search')) index = 1;
+    if (currentPath.startsWith('/')) index = 0;
+    if (currentPath.startsWith('/emg')) index = 1;
+    if (currentPath.startsWith('/dev')) index = 2;
 
     return Scaffold(
       body: child,
