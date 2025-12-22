@@ -16,6 +16,7 @@ final class EmgMlPlugin: NSObject, FlutterPlugin {
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
 
+  // MethodChannelのハンドラ登録
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "loadModel":
@@ -27,6 +28,7 @@ final class EmgMlPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // modelのload
   private func handleLoadModel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let bytes = args["bytes"] as? FlutterStandardTypedData
@@ -55,6 +57,7 @@ final class EmgMlPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // 推論メンバ
   private func handlePredict(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let model = self.model else {
       result(FlutterError(code: "not_ready", message: "model not loaded", details: nil))

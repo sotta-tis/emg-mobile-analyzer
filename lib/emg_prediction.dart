@@ -10,7 +10,7 @@ class EmgPrediction {
 
 /// クラスラベル（学習時の順序）を一元管理
 class EmgLabels {
-  // emg_dataset.json を train_offline.py に通した際のクラス順（初出順）
+  // emg_dataset.json を train_offline.py に通した際のクラス順
   static const List<String> names = ['paper', 'cizer', 'rock', 'pinch'];
 }
 
