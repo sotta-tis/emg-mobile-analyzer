@@ -13,6 +13,7 @@ import 'package:emg_mobile_analyzer/widgets/emg_wave_form_chart.dart';
 import 'package:emg_mobile_analyzer/widgets/ble_manager_panel.dart';
 import 'package:emg_mobile_analyzer/widgets/emg_features_panel.dart';
 import 'package:emg_mobile_analyzer/widgets/emg_label_record_panel.dart';
+import 'package:emg_mobile_analyzer/widgets/emg_realtime_inference_panel.dart';
 
 class EmgScreen extends ConsumerStatefulWidget {
   const EmgScreen({super.key});
@@ -93,6 +94,12 @@ class _EmgScreenState extends ConsumerState<EmgScreen> {
                   fixedMaxY: 1.0,
                 ),
               ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: EmgRealtimeInferencePanel(),
             ),
           ),
 

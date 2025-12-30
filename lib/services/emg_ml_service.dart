@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
-import 'package:emg_mobile_analyzer/emg_prediction.dart';
 import 'package:emg_mobile_analyzer/services/emg_feature_extractor.dart';
+import 'package:emg_mobile_analyzer/emg_prediction.dart';
 import 'package:emg_mobile_analyzer/emg_normalizer_const.dart';
 
 class EmgMlService {
@@ -71,5 +71,33 @@ class EmgMlService {
     final scores = scoresDynamic.map((e) => (e as num).toDouble()).toList();
 
     return EmgPrediction(labelIndex: labelIndex, scores: scores);
+  }
+
+  /// Core ML の on-device 学習を呼び出す（iOS 13+）。samples: 生特徴10次元 & labelIndex。
+  Future<Map<dynamic, dynamic>> train(List<LabeledEmgSample> samples) async {
+    if (samples.isEmpty) {
+      throw ArgumentError('samples must not be empty');
+    }
+    if (!_ready) {
+      await initModel();
+    }
+
+    final payload = samples
+        .map(
+          (s) => {
+            'features': List<double>.from(s.features),
+            'labelIndex': s.labelIndex,
+          },
+        )
+        .toList(growable: false);
+
+    final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('train', {
+      'samples': payload,
+    });
+
+    if (result == null) {
+      throw Exception('train result is null');
+    }
+    return result;
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emg_mobile_analyzer/widgets/dev/ffi_sample.dart';
 import 'package:emg_mobile_analyzer/widgets/dev/model_load.dart';
 import 'package:emg_mobile_analyzer/widgets/dev/demo_dataset_inference.dart';
+import 'package:emg_mobile_analyzer/widgets/dev/demo_train.dart';
 
 class DevScreen extends ConsumerStatefulWidget {
   const DevScreen({super.key});
@@ -25,6 +26,9 @@ class _DevScreenState extends ConsumerState<DevScreen> {
             const ModelLoadTestWidget(),
 
             const SizedBox(height: 12),
+
+            // データセット学習テスト
+            const DemoTrainCard(),
 
             const SizedBox(height: 12),
 
