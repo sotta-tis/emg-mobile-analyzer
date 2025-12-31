@@ -37,6 +37,14 @@ class _EmgRealtimeInferencePanelState
   bool _busy = false;
   String _status = 'waiting';
 
+  // 精度測定用
+  final Map<String, double> _accuracies = {};
+  bool _measuring = false;
+  String? _measuringLabel;
+  int _correctCount = 0;
+  int _totalCount = 0;
+  static const measureDuration = Duration(seconds: 3);
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +76,18 @@ class _EmgRealtimeInferencePanelState
         setState(() {
           _latest = pred;
           _status = 'ok';
+
+          // 精度測定中の場合、一致判定
+          if (_measuring && _measuringLabel != null) {
+            _totalCount++;
+            final predictedLabel =
+                (pred.labelIndex >= 0 && pred.labelIndex < widget.labels.length)
+                    ? widget.labels[pred.labelIndex]
+                    : null;
+            if (predictedLabel == _measuringLabel) {
+              _correctCount++;
+            }
+          }
         });
       } on PlatformException catch (e) {
         setState(() {
@@ -87,6 +107,33 @@ class _EmgRealtimeInferencePanelState
   void dispose() {
     _sub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _measureAccuracy(String label) async {
+    if (_measuring) return;
+
+    setState(() {
+      _measuring = true;
+      _measuringLabel = label;
+      _correctCount = 0;
+      _totalCount = 0;
+      _status = 'Measuring "$label"...';
+    });
+
+    await Future.delayed(measureDuration);
+
+    if (!mounted) return;
+
+    final accuracy =
+        _totalCount > 0 ? (_correctCount / _totalCount) * 100 : 0.0;
+
+    setState(() {
+      _measuring = false;
+      _accuracies[label] = accuracy;
+      _status =
+          'Measured "$label": ${accuracy.toStringAsFixed(1)}% ($_correctCount/$_totalCount)';
+      _measuringLabel = null;
+    });
   }
 
   @override
@@ -160,6 +207,67 @@ class _EmgRealtimeInferencePanelState
                   );
                 }),
               ),
+
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+
+            const Text(
+              'Accuracy Measurement',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  widget.labels
+                      .map(
+                        (label) => ElevatedButton(
+                          onPressed:
+                              _measuring ? null : () => _measureAccuracy(label),
+                          child: Text(label.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
+            ),
+
+            const SizedBox(height: 12),
+
+            ...widget.labels.map((label) {
+              final accuracy = _accuracies[label] ?? 0.0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(width: 70, child: Text(label)),
+                    Expanded(
+                      child: LinearProgressIndicator(
+                        value: accuracy / 100,
+                        minHeight: 8,
+                        backgroundColor: Colors.grey[300],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          accuracy >= 80
+                              ? Colors.green
+                              : accuracy >= 60
+                              ? Colors.orange
+                              : Colors.red,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 56,
+                      child: Text(
+                        '${accuracy.toStringAsFixed(1)}%',
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
