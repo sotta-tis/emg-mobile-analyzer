@@ -1,13 +1,140 @@
 \chapter{システム構成およびデータ収集}
 
 \section{システム全体アーキテクチャ}
-センサ、マイコン、通信、クラウド（必要に応じて）を含む全体構成を記述する。
+本システムは,大別して3層からなるアーキテクチャで構成される（図\ref{fig:system}）.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{src/system.png}
+    \caption{システム全体アーキテクチャ}
+    \label{fig:system}
+\end{figure}
+    
+\subsection{全体構成}
+\begin{enumerate}
+\item \textbf{モバイルウェア層（ペリフェラルデバイス）}\\
+Raspberry Pi Pico 2 W とMyoWareセンサーで構成される.1kHzサンプリングでADC変換したsEMG信号を,10サンプルずつパケットしてNotifyする.
+
+\item \textbf{iOS層（ネイティブ実行環境）}\\
+FlutterブリッジがMethod Channel / Event Channelを介してFlutter層と通信し,Neural Engine（Core ML）を用いた推論・on-device学習,ローカルストレージへのセッション永続化を担当する.
+
+\item \textbf{Flutter層（アプリケーション層）}\\
+BLE通信,データバッファリング,セッション管理を行うService層,UIを提供するView層,高速演算を担うC++/FFIライブラリ（特徴抽出）から構成される.
+\end{enumerate}
+
+\pagebreak
+
+\subsection{データフロー}
+データは以下の流れで処理される：
+
+\begin{enumerate}
+\item Pico 2 Wが1kHzでsEMG信号をサンプリング
+\item BLE経由で10サンプル/パケット（約100Hz）でFlutter層へ送信
+\item Flutter Service層がバッファリング・セッション管理
+\item C++ライブラリが150msウィンドウ（50msホップ）で特徴抽出（10次元特徴量）
+\item iOS層のCore MLが特徴量からジェスチャ分類推論
+\item View層がリアルタイム表示・データ記録
+\end{enumerate}
+
+\pagebreak
+
 
 \section{ハードウェア構成}
-電極配置、アンプ、ADコンバータ、マイコン／SoCなどハードウェア要素と仕様を示す。
+電極配置,アンプ,ADコンバータ,マイコン/SoCなどハードウェア要素と仕様を示す.
+
+\pagebreak
 
 \section{ソフトウェア構成}
-ファームウェア、信号処理パイプライン、推論モジュール、通信プロトコルの役割を説明する。
+本システムのソフトウェアは,ファームウェア,信号処理パイプライン,推論モジュール,通信プロトコルの4つの主要コンポーネントで構成される.
+
+\subsection{ファームウェア（Raspberry Pi Pico 2 W）}
+MicroPythonベースのBLE Peripheral実装により,以下の機能を提供する：
+
+\begin{itemize}
+\item \textbf{高速サンプリング}：内蔵ADC4を用いた1kHz連続サンプリング
+\item \textbf{BLE GATT サーバー}：カスタムサービス（UUID: \texttt{12345678-1234-5678-1234-56789ABCDEF0}）によるデータ配信
+\item \textbf{パケット化}：シーケンス番号（2バイト）+ 10サンプル（各4バイトfloat）の42バイト/パケット構成
+\item \textbf{送信レート}：約100Hz（10サンプル周期）でNotify配信
+\end{itemize}
+
+\subsection{BLE通信層（Flutter）}
+\texttt{flutter\_blue\_plus}ライブラリを用いたBLE Central実装により,以下を実現する：
+
+\begin{itemize}
+\item \textbf{デバイス自動検出}：デバイス名（\texttt{picow\_temp}）によるスキャン・自動接続
+\item \textbf{データ受信}：Notify購読による非同期パケット受信（\texttt{BleDataPacket}）
+\item \textbf{エラーハンドリング}：接続断・パケットロストの検出と再接続
+\item \textbf{Stream API}：\texttt{packetStream}によるリアクティブデータ配信
+\end{itemize}
+
+\subsection{信号処理パイプライン}
+
+\subsubsection{バッファリング（\texttt{EmgWindowBuffer}）}
+受信した生サンプルを時系列バッファに蓄積し,以下のウィンドウ分割処理を行う：
+
+\begin{itemize}
+\item \textbf{ウィンドウ長}：150サンプル（1kHzで150ms）
+\item \textbf{ホップ長}：50サンプル（50ms）による2/3オーバーラップ
+\item \textbf{リアルタイム切り出し}：\texttt{popReadyWindows()}により準備完了ウィンドウを順次取得
+\end{itemize}
+
+\subsubsection{特徴抽出（C++/FFI）}
+ネイティブライブラリ（\texttt{native\_engine.framework}）により高速な特徴量計算を実現：
+
+\begin{itemize}
+\item \textbf{時間領域特徴}：平均絶対値（MAV）,RMS,Zero Crossing,波形長
+\item \textbf{周波数領域特徴}：パワースペクトル密度の統計量
+\item \textbf{出力}：10次元特徴ベクトル（正規化済み）
+\item \textbf{性能}：ARMv8 NEON最適化によりウィンドウあたり<1ms処理
+\end{itemize}
+
+\subsection{推論モジュール（Core ML / iOS）}
+
+\subsubsection{Method Channel ブリッジ（\texttt{EmgMlPlugin.swift}）}
+Flutter-iOS間の通信インターフェースを提供：
+
+\begin{itemize}
+\item \textbf{loadModel}：\texttt{.mlmodel}のコンパイルとメモリロード
+\item \textbf{predict}：10次元特徴量を受け取り,クラス確率分布を返却
+\item \textbf{train}：ラベル付きサンプルセットでon-device学習実行（\texttt{MLUpdateTask}）
+\end{itemize}
+
+\subsubsection{Core ML 推論エンジン}
+\begin{itemize}
+\item \textbf{モデル構成}：全結合ニューラルネットワーク（入力10次元,出力4クラス）
+\item \textbf{計算ユニット}：Neural Engine優先（\texttt{computeUnits: .all}）
+\item \textbf{更新可能モデル}：\texttt{UpdatableClassifier}により学習後の重み永続化
+\item \textbf{出力}：\texttt{classProbability}（確率分布）+ argmax（予測ラベル）
+\end{itemize}
+
+\subsection{データ管理層（Flutter Service）}
+
+\subsubsection{セッション管理（\texttt{EmgDatasetRecorder}）}
+\begin{itemize}
+\item \textbf{ディレクトリ構造}：\texttt{/emg\_data/session\_<ISO8601>/}配下に\texttt{manifest.json}とサンプルCSV
+\item \textbf{CSVフォーマット}：\texttt{t\_ms\_packet, seq\_packet, sample\_idx, value\_norm}の4列
+\item \textbf{ファイル名規則}：\texttt{<ISO8601>\_<label>\_sNNNN.csv}（1サンプル=5秒間連続データ）
+\item \textbf{メタデータ}：サンプリング周波数,ラベル情報,前処理パラメータを記録
+\end{itemize}
+
+\subsubsection{状態管理（Riverpod）}
+\begin{itemize}
+\item \textbf{BLE接続状態}：\texttt{bleServiceProvider}による接続・スキャン管理
+\item \textbf{推論状態}：\texttt{emgMlServiceProvider}によるモデルライフサイクル管理
+\item \textbf{記録状態}：\texttt{emgDatasetRecorderProvider}によるセッション制御
+\item \textbf{リアクティブUI}：Stream購読による自動再描画
+\end{itemize}
+
+\subsection{通信プロトコル仕様}
+BLE通信は以下の仕様に従う：
+
+\begin{itemize}
+\item \textbf{プロトコル}：BLE GATT（Generic Attribute Profile）
+\item \textbf{MTU}：42バイト/パケット（シーケンス2B + float32×10）
+\item \textbf{エンディアン}：リトルエンディアン
+\item \textbf{サンプリング保証}：シーケンス番号によるパケットロスト検出
+\item \textbf{遅延特性}：BLE通信7-15ms + 処理遅延<5ms = 総遅延<20ms/パケット
+\end{itemize}
 
 \section{sEMGデータ収集方法}
-被験者、装着方法、タスク設計、サンプリング条件などデータ収集手順を記載する。
+被験者,装着方法,タスク設計,サンプリング条件などデータ収集手順を記載する.
