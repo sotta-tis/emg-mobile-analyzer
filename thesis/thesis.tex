@@ -1,0 +1,64 @@
+\documentclass[uplatex,11pt,a4paper]{jsreport}
+
+% =====================
+% パッケージ
+% =====================
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{bm}
+\usepackage{url}
+
+% 図表の番号を章ごとに
+\numberwithin{equation}{chapter}
+\numberwithin{figure}{chapter}
+\numberwithin{table}{chapter}
+
+% =====================
+% 表紙情報（適宜変更）
+% =====================
+\title{卒業研究論文タイトル}
+\author{大阪公立大学工業高等専門学校 安藤研究室\\
+学籍番号 R21094\\
+氏名 年澄 荘多}
+\date{令和5年度}
+
+\begin{document}
+
+% =====================
+% 表紙
+% =====================
+\maketitle
+\thispagestyle{empty}
+\clearpage
+
+% =====================
+% 要旨
+% =====================
+\chapter*{要旨}
+\addcontentsline{toc}{chapter}{要旨}
+\input{./abstract}
+\clearpage
+
+% =====================
+% 目次
+% =====================
+\tableofcontents
+\clearpage
+
+% =====================
+% 本文
+% =====================
+\input{sections/intro}
+\input{sections/related}
+\input{sections/method}
+\input{sections/experiment}
+\input{sections/conclusion}
+
+% =====================
+% 参考文献
+% =====================
+\bibliographystyle{junsrt}
+\bibliography{reference}
+
+\end{document}
