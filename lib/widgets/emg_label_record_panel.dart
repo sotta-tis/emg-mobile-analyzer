@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emg_mobile_analyzer/emg_dataset_recorder_provider.dart';
+import 'package:emg_mobile_analyzer/emg_ml_service_provider.dart';
+import 'package:emg_mobile_analyzer/emg_prediction.dart';
+import 'package:emg_mobile_analyzer/emg_normalizer_const.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -80,6 +83,71 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
     setState(() => _status = 'Cleared (memory)');
   }
 
+  Future<void> _trainOnDevice() async {
+    if (_busy) return;
+
+    setState(() {
+      _busy = true;
+      _status = 'Training on-device...';
+    });
+
+    try {
+      final recorder = ref.read(emgDatasetRecorderProvider);
+      final ml = ref.read(emgMlServiceProvider);
+
+      await ml.initModel();
+      await loadEmgNormalizerFromAsset();
+
+      if (recorder.dataset.isEmpty) {
+        throw StateError('Dataset is empty. Record some data first.');
+      }
+
+      final samples = <LabeledEmgSample>[];
+      int skipped = 0;
+
+      for (final entry in recorder.dataset) {
+        final feats = (entry['features'] as List<dynamic>)
+            .map((e) => (e as num).toDouble())
+            .toList(growable: false);
+        final label = entry['classLabel'] as String? ?? '';
+
+        // ラベルをindexに変換
+        final labelIndex = labels.indexOf(label);
+        if (labelIndex < 0) {
+          skipped++;
+          continue;
+        }
+
+        // 正規化を適用
+        final normalized = emgNormalizer.normalize10(feats);
+        samples.add(
+          LabeledEmgSample(
+            features: normalized.toList(growable: false),
+            labelIndex: labelIndex,
+          ),
+        );
+      }
+
+      if (samples.isEmpty) {
+        throw StateError('No valid samples found in dataset');
+      }
+
+      final result = await ml.train(samples);
+      final updatedPath =
+          result['updatedModelPath'] as String? ?? '(path unknown)';
+      final count = result['sampleCount'] as int? ?? samples.length;
+
+      setState(() {
+        _status =
+            'Training completed: $count samples${skipped > 0 ? ' (skipped: $skipped)' : ''}\nModel: $updatedPath';
+      });
+    } catch (e) {
+      setState(() => _status = 'Training error: $e');
+    } finally {
+      setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final recorder = ref.watch(emgDatasetRecorderProvider);
@@ -117,6 +185,16 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
             ElevatedButton(
               onPressed: _busy ? null : _save,
               child: Text('SAVE (overwrite) → $fileName'),
+            ),
+
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _busy ? null : _trainOnDevice,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('TRAIN ON-DEVICE'),
             ),
 
             TextButton(
