@@ -1,3 +1,28 @@
 {
-  "dart.flutterSdkPath": ".fvm/versions/stable"
+  "dart.flutterSdkPath": ".fvm/versions/stable",
+  "latex-workshop.latex.autoBuild.run": "onFileChange",
+  "latex-workshop.view.pdf.viewer": "tab",
+
+  "latex-workshop.latex.tools": [
+    {
+      "name": "latexmk (uplatex -> dvipdfmx)",
+      "command": "/Library/TeX/texbin/latexmk",
+      "args": [
+        "-pdfdvi",
+        "-interaction=nonstopmode",
+        "-synctex=1",
+        "-file-line-error",
+        "-e",
+        "$latex='/Library/TeX/texbin/uplatex %O %S'; $bibtex='/Library/TeX/texbin/upbibtex %O %B'; $dvipdf='/Library/TeX/texbin/dvipdfmx %O -o %D %S'",
+        "%DOC%"
+      ]
+    }
+  ],
+
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "latexmk (uplatex -> dvipdfmx)",
+      "tools": ["latexmk (uplatex -> dvipdfmx)"]
+    }
+  ]
 }
