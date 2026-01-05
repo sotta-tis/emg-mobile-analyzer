@@ -3,7 +3,7 @@
 \section{実験条件}
 
 \subsection{事前学習モデル}
-オンデバイス学習の初期値として用いる事前学習モデルを作成した.
+on-device学習の初期値として用いる事前学習モデルを作成した.
 
 \subsubsection{データ収集}
 アプリケーションのレコーダー機能を用い,
@@ -52,7 +52,7 @@ z-score正規化（$\epsilon=10^{-6}$）を適用した.
 \;\rightarrow\;
 \text{学習用データ収集}
 \;\rightarrow\;
-\text{オンデバイス学習}
+\text{on-device学習}
 \;\rightarrow\;
 \text{学習後測定}
 \end{equation}
@@ -71,7 +71,7 @@ z-score正規化（$\epsilon=10^{-6}$）を適用した.
   各ジェスチャを3秒間記録し,
   特徴ベクトルを取得する（4ラベル合計で約200--240サンプル）.
   
-  \item \textbf{オンデバイス学習}：
+  \item \textbf{on-device学習}：
   収集したデータを用いて,
   端末上で学習を実行する（表\ref{tab:hyperparameters}）.
   
@@ -86,7 +86,7 @@ z-score正規化（$\epsilon=10^{-6}$）を適用した.
   \label{tab:hyperparameters}
   \begin{tabular}{lcc}
     \hline
-    パラメータ & 事前学習 & オンデバイス学習 \\
+    パラメータ & 事前学習 & on-device学習 \\
     \hline
     エポック数 & 300 & 10 \\
     バッチサイズ & 32 & 16 \\
@@ -100,7 +100,8 @@ z-score正規化（$\epsilon=10^{-6}$）を適用した.
 \end{table}
 
 \section{評価指標}
-本研究では,Accuracy,Stability,Confidence,いずれも各classを3秒間維持した区間$T$から算出した.
+評価指標として,Accuracy,Stability,Confidenceを用いる.
+いずれも各ジェスチャを3秒間維持した区間$T$から算出した.
 
 \subsection{Accuracy}
 \begin{equation}
@@ -172,11 +173,11 @@ m=\arg\max_c\sum_{t\in T}\mathbb{1}[\hat{y}_t=c].
 
 \subsection{学習前後の改善量}
 
-表\ref{tab:improvement}に、オンデバイス学習による各指標の改善量を示す.
+表\ref{tab:improvement}に、on-device学習による各指標の改善量を示す.
 
 \begin{table}[htbp]
   \centering
-  \caption{オンデバイス学習による改善量（10条件平均）}
+  \caption{on-device学習による改善量（10条件平均）}
   \label{tab:improvement}
   \begin{tabular}{lccc}
     \hline
@@ -193,4 +194,4 @@ m=\arg\max_c\sum_{t\in T}\mathbb{1}[\hat{y}_t=c].
 \end{table}
 
 改善量は学習後の値から学習前の値を減算したもの（$\Delta = \text{学習後} - \text{学習前}$）である.
-正の値は性能向上を、負の値は性能低下を示す,
+正の値は性能向上,負の値は性能低下を示す.

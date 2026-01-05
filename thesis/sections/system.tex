@@ -30,8 +30,7 @@ BLE通信,データバッファリング,セッション管理を行うService�
 % ハードウェア構成
 % ====================
 \section{ハードウェア構成}
-本システムで使用するハードウェアコンポーネントの仕様を以下に示す.
-Raspberry Pi Pico 2 W をマイコンとして利用し電源とアナログセンサーの値取得を行い,BLE経由でモバイル端末へ送信する.
+Raspberry Pi Pico 2 Wをマイコンとして使用し,sEMG信号をBLE経由でモバイル端末へ送信する.
 
 \subsection{ハードウェアの選定}
 \begin{table}[htbp]
@@ -62,8 +61,7 @@ MicroPythonベースのBLE Peripheral実装により,以下の機能を提供す
 % ソフトウェア構成
 % =====================
 \section{ソフトウェア構成}
-Flutterにおけるメインアプリケーションのソフトウェア構成はクリーンアーキテクチャを採用し,それぞれのパイプラインや演算処理をServiceとして定義したのちインスタンスをRiverpodで状態管理して各UIで参照する.
-（図\ref{fig:flutter-arch}）
+メインアプリケーションはクリーンアーキテクチャを採用し,各処理をServiceとして定義してRiverpodで状態管理する（図\ref{fig:flutter-arch}）.
 
 \begin{figure}[htbp]
     \centering
@@ -110,8 +108,7 @@ Flutterにおけるメインアプリケーションのソフトウェア構成�
 \end{figure}
 
 \subsection{実装したServiceクラス群}
-本システムでは,データフロー上の各処理をServiceクラスとして分離し,
-Riverpod Providersによる依存性注入により結合している.
+データフロー上の各処理をServiceクラスとして分離し,Riverpod Providersで依存性注入を行った.
 以下に各Serviceの役割を示す.
 
 \subsubsection{BleService（BLE通信）}
@@ -245,7 +242,7 @@ Streamとして配信する（図\ref{fig:ble-flow}）.
 \subsubsection{EmgMlService（推論・学習）}
 \label{subsubsec:ml-service}
 \textbf{責務}：
-Flutter層とiOS Native層を接続し,推論およびオンデバイス学習を実行する.
+Flutter層とiOS Native層を接続し,推論およびon-device学習を実行する.
 
 \textbf{入出力}：
 入力：10次元特徴ベクトル  
@@ -254,7 +251,7 @@ Flutter層とiOS Native層を接続し,推論およびオンデバイス学習�
 \textbf{概要}：
 Method Channelを介してiOS Native層のCore MLモデルを呼び出し,
 Neural Engineを用いた推論を実行する.
-また,\texttt{MLUpdateTask}を用いたオンデバイス学習を行い,
+また,\texttt{MLUpdateTask}を用いたon-device学習を行い,
 更新後のモデルを永続化する（図\ref{fig:ml-architecture}）.
 
 \begin{figure}[htbp]
@@ -281,7 +278,7 @@ Neural Engineを用いた推論を実行する.
         - EmgMlPlugin\\
         - Core MLモデルロード\\
         - Neural Engineで推論実行\\
-        - On-device学習 (MLUpdateTask)\\
+        - on-device学習 (MLUpdateTask)\\
         - 結果をFlutterに返却
       };
   
@@ -304,7 +301,7 @@ Neural Engineを用いた推論を実行する.
 \subsubsection{EmgDatasetRecorder（データ記録）}
 \label{subsubsec:dataset-recorder}
 \textbf{責務}：
-オンデバイス学習に用いるラベル付き特徴量データを管理・保存する.
+on-device学習に用いるラベル付き特徴量データを管理・保存する.
 
 \textbf{入出力}：
 入力：特徴量ベクトルおよびユーザ指定ラベル  
@@ -313,7 +310,7 @@ Neural Engineを用いた推論を実行する.
 \textbf{概要}：
 特徴量と対応ラベルをメモリ上に保持し,
 JSON形式での保存および学習処理への受け渡しを行う.
-収集したデータは\texttt{EmgMlService}の学習処理に直接利用可能な形式とした.
+収集データは\texttt{EmgMlService}の学習処理で直接利用できる形式とした.
 
 \subsubsection{共通処理パイプライン}
 推論およびデータ記録では,以下の処理を共通パイプラインとして用いる.
@@ -326,8 +323,7 @@ JSON形式での保存および学習処理への受け渡しを行う.
 \pagebreak
 
 \subsection{用途（UI）ごとの機能}
-本節では,\ref{subsubsec:ble-service}で述べたServiceクラス群を用いて実装した主要機能を,
-対応するUI単位で説明する.各機能は共通の信号処理パイプラインに基づいて動作する.
+本節では,Serviceクラス群を用いて実装した主要機能をUI単位で説明する.
 
 \subsubsection{リアルタイム推論（\texttt{EmgRealtimeInferencePanel}）}
 \textbf{目的}：受信したsEMG信号をリアルタイムに分類し,推論結果を可視化する.\\
@@ -341,8 +337,7 @@ JSON形式での保存および学習処理への受け渡しを行う.
     \label{fig:realtime-inference}
 \end{figure}
 
-\textbf{表示内容}：図\ref{fig:realtime-inference}に示すように,sEMG波形と各クラスの確率分布,
-および最尤ラベルを表示する.
+\textbf{表示}：sEMG波形,各クラスの確率分布,最尤ラベルを表示する（図\ref{fig:realtime-inference}）.
 
 \pagebreak
 \subsubsection{精度測定（ラベル別Top-1正解率）}
@@ -360,7 +355,7 @@ JSON形式での保存および学習処理への受け渡しを行う.
 
 \pagebreak
 \subsubsection{データセット記録（ラベル付き特徴量の収集）}
-\textbf{目的}：オンデバイス学習用のラベル付きデータセットを端末上で収集する.\\
+\textbf{目的}：on-device学習用のラベル付きデータセットを端末上で収集する.\\
 \textbf{使用Service}：BleService,EmgWindowBuffer,EmgFeatureExtractor,EmgDatasetRecorder.\\
 \textbf{処理}：ユーザがジェスチャのラベルを指定して記録を開始すると,
 共通処理パイプラインの(1)〜(3)を実行し,特徴量にラベルと時刻を付与して蓄積する.
@@ -373,10 +368,10 @@ JSON形式での保存および学習処理への受け渡しを行う.
 \end{figure}
 
 \subsubsection{データの保存とエクスポート}
-収集したデータセットはローカルストレージへJSON形式で保存し,
-必要に応じてShare Sheet経由で外部へエクスポート可能とした.
-これにより,オフライン解析や事前学習用データとして利用できる.
-\subsubsection{On-device学習の実行}
+収集データセットはローカルストレージへJSON形式で保存し,
+Share Sheet経由で外部へエクスポートできる.
+オフライン解析や事前学習用データとしても利用可能である.
+\subsubsection{on-device学習の実行}
 \textbf{目的}：収集データを用いて端末上でモデルを更新し,個人差への適応を行う.\\
 \textbf{使用Service}：EmgMlService,EmgDatasetRecorder.\\
 \textbf{処理}：保存済みデータセットを学習用形式に変換し,
@@ -385,8 +380,8 @@ Method Channel経由でiOS Native層へ渡して\texttt{MLUpdateTask}により�
 学習前後の性能変化は精度測定機能（図\ref{fig:accuracy-measurement}）により確認する.
 \subsubsection{メモリクリア}
 \texttt{CLEAR (memory)}ボタンにより,
-メモリ上のデータセットを消去し,新しいセッションを開始できる.
-これにより,異なる条件でのデータ収集を繰り返し実行可能となる.
+メモリ上のデータセットを消去して新しいセッションを開始する.
+異なる条件でのデータ収集を繰り返し実行できる.
 
 
 
