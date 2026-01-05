@@ -4,8 +4,8 @@
 \section*{付録A：特徴量の詳細な数式定義}
 \addcontentsline{toc}{section}{付録A：特徴量の詳細な数式定義}
 
-本研究で使用する10次元特徴ベクトルの詳細な数式定義を示す。
-各特徴量は150サンプル（サンプリング周波数1000Hzで150ms相当）の時間窓から計算される。
+本研究で使用する10次元特徴ベクトルの詳細な数式定義を示す.
+各特徴量は150サンプル（サンプリング周波数1000Hzで150ms相当）の時間窓から計算される.
 
 \subsection*{時間領域特徴量}
 
@@ -38,8 +38,8 @@
 
 \subsection*{周波数領域特徴量}
 
-FFT（高速フーリエ変換）により周波数スペクトルを計算し、以下の特徴量を抽出する。
-入力信号にはHann窓を適用し、スペクトル漏れを抑制する。
+FFT（高速フーリエ変換）により周波数スペクトルを計算し、以下の特徴量を抽出する.
+入力信号にはHann窓を適用し、スペクトル漏れを抑制する.
 
 \begin{enumerate}
     \setcounter{enumi}{4}
@@ -47,13 +47,13 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
     \begin{equation}
         \text{CPS} = \frac{\sum_{k=1}^{N/2} f_k \cdot P_k}{\sum_{k=1}^{N/2} P_k}
     \end{equation}
-    ここで、\(f_k\)は周波数ビン、\(P_k\)はパワースペクトル密度を表す。
+    ここで、\(f_k\)は周波数ビン、\(P_k\)はパワースペクトル密度を表す.
     
     \item \textbf{低周波帯エネルギー比 (LFO: Low Frequency Ratio)}
     \begin{equation}
         \text{LFO} = \frac{\sum_{f \leq 150\text{Hz}} P_f}{\sum_{k=1}^{N/2} P_k}
     \end{equation}
-    150Hz以下の周波数帯域のパワーが全体に占める割合を表す。
+    150Hz以下の周波数帯域のパワーが全体に占める割合を表す.
 \end{enumerate}
 
 \subsection*{自己回帰モデル係数}
@@ -84,28 +84,28 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
         \end{bmatrix}
     \end{equation}
     
-    これにより4つの係数\(a_1, a_2, a_3, a_4\)が得られる。
+    これにより4つの係数\(a_1, a_2, a_3, a_4\)が得られる.
 \end{enumerate}
 
 \section*{付録B：ニューラルネットワークの詳細実装}
 \addcontentsline{toc}{section}{付録B：ニューラルネットワークの詳細実装}
 
-本研究で使用するニューラルネットワークの詳細な層構成と処理フローを示す。
+本研究で使用するニューラルネットワークの詳細な層構成と処理フローを示す.
 
 \subsection*{処理フロー}
 
 図\ref{fig:network_architecture}に示すように、Core MLのInnerProduct層とActivation層を組み合わせて
-実装されている。ネットワークは以下の処理フローで構成される：
+実装されている.ネットワークは以下の処理フローで構成される：
 
 \begin{enumerate}
-    \item \textbf{入力層（features）}：10次元の特徴ベクトル$\mathbf{x} \in \mathbb{R}^{10}$を受け取る。
+    \item \textbf{入力層（features）}：10次元の特徴ベクトル$\mathbf{x} \in \mathbb{R}^{10}$を受け取る.
     
     \item \textbf{第1のInnerProduct層}：10次元入力を24次元に変換
     \begin{equation}
         \mathbf{h}_{\text{pre}} = W_1 \mathbf{x} + \mathbf{b}_1
     \end{equation}
-    ここで、$W_1 \in \mathbb{R}^{24 \times 10}$、$\mathbf{b}_1 \in \mathbb{R}^{24}$である。
-    この層は\textbf{固定層}であり、デバイス上での学習時には更新されない。
+    ここで、$W_1 \in \mathbb{R}^{24 \times 10}$、$\mathbf{b}_1 \in \mathbb{R}^{24}$である.
+    この層は\textbf{固定層}であり、デバイス上での学習時には更新されない.
     
     \item \textbf{Activation層（ReLU）}：非線形変換を適用
     \begin{equation}
@@ -116,8 +116,8 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
     \begin{equation}
         \mathbf{z} = W_2 \mathbf{h} + \mathbf{b}_2
     \end{equation}
-    ここで、$W_2 \in \mathbb{R}^{4 \times 24}$、$\mathbf{b}_2 \in \mathbb{R}^{4}$である。
-    この層は\textbf{更新可能層（Updatable）}であり、デバイス上での継続学習の対象となる。
+    ここで、$W_2 \in \mathbb{R}^{4 \times 24}$、$\mathbf{b}_2 \in \mathbb{R}^{4}$である.
+    この層は\textbf{更新可能層（Updatable）}であり、デバイス上での継続学習の対象となる.
     
     \item \textbf{Softmax層}：logitsをクラス確率に変換
     \begin{equation}
@@ -125,7 +125,7 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
     \end{equation}
     
     \item \textbf{出力層（stringClassLabels）}：確率分布$\mathbf{p} = [p_1, p_2, p_3, p_4]^T$と
-    最大確率を持つクラスラベル（classLabel）を出力する。
+    最大確率を持つクラスラベル（classLabel）を出力する.
 \end{enumerate}
 
 \subsection*{計算量の詳細}
@@ -146,7 +146,7 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
     \mathcal{L} = -\sum_{i=1}^{4} y_i \log(p_i)
 \end{equation}
 
-ここで、$y_i$は真のラベルのone-hotエンコーディング、$p_i$はモデルが出力する確率である。
+ここで、$y_i$は真のラベルのone-hotエンコーディング、$p_i$はモデルが出力する確率である.
 
 \subsection*{Transfer Learning的アプローチ}
 
@@ -154,12 +154,12 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
 
 \begin{itemize}
     \item \textbf{学習の安定性}：隠れ層を固定することで、既に獲得された汎用的な特徴表現を保持し、
-    過学習を抑制できる。
+    過学習を抑制できる.
     
     \item \textbf{計算効率}：更新対象のパラメータが100個（総パラメータの27.5\%）に限定されるため、
-    勾配計算とパラメータ更新の計算コストが削減される。
+    勾配計算とパラメータ更新の計算コストが削減される.
     
     \item \textbf{Transfer Learning的アプローチ}：隠れ層が共通の特徴抽出器として機能し、
-    出力層のみを個人適応させることで、少量のデータでも効果的な学習が可能となる。
+    出力層のみを個人適応させることで、少量のデータでも効果的な学習が可能となる.
 \end{itemize}
 
