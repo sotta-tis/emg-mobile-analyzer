@@ -25,22 +25,6 @@ FlutterブリッジがMethod Channel / Event Channelを介してFlutter層と通
 BLE通信,データバッファリング,セッション管理を行うService層,UIを提供するView層,高速演算を担うC++/FFIライブラリ（特徴抽出）から構成される.
 \end{enumerate}
 
-\pagebreak
-
-\subsection{データフロー}
-データは以下の流れで処理される：
-
-\begin{enumerate}
-\item Pico 2 Wが1kHzでsEMG信号をサンプリング
-\item BLE経由で10サンプル/パケット（約100Hz）でFlutter層へ送信
-\item Flutter Service層がバッファリング・セッション管理
-\item C++ライブラリが150msウィンドウ（50msホップ）で特徴抽出（10次元特徴量）
-\item iOS層のCore MLが特徴量からジェスチャ分類推論
-\item View層がリアルタイム表示・データ記録
-\end{enumerate}
-
-\pagebreak
-
 
 % =====================
 % ハードウェア構成
@@ -132,11 +116,19 @@ Riverpod Providersによる依存性注入により結合している.
 
 \subsubsection{BleService（BLE通信）}
 \label{subsubsec:ble-service}
-Raspberry Pi Pico 2 WとのBLE通信を担当.
-\texttt{flutter\_blue\_plus}によりBLE Central機能を実装し,
-デバイス名でフィルタリング後,カスタムUUIDのキャラクタリスティックからNotify購読する.
-42バイトパケット（シーケンス2B + 10サンプル40B）を\texttt{BleDataPacket}としてStreamで配信（図\ref{fig:ble-flow}参照）.
+\textbf{責務}：
+Raspberry Pi Pico 2 WとのBLE通信を管理し,sEMGデータをアプリケーション内部に供給する.
 
+\textbf{入出力}：
+入力：BLE Notifyによる42バイトパケット  
+出力：\texttt{BleDataPacket}のStream
+
+\textbf{概要}：
+\texttt{flutter\_blue\_plus}を用いてBLE Central機能を実装し,
+デバイス名によるフィルタリング後に接続を行う.
+カスタムUUIDのキャラクタリスティックをNotify購読し,
+受信したパケット（シーケンス番号2B,サンプル10点40B）をパースして
+Streamとして配信する（図\ref{fig:ble-flow}）.
 \begin{figure}[htbp]
     \centering
     \begin{tikzpicture}[
@@ -170,8 +162,17 @@ Raspberry Pi Pico 2 WとのBLE通信を担当.
 
 \subsubsection{EmgWindowBuffer（データバッファリング）}
 \label{subsubsec:window-buffer}
-連続サンプルを時系列バッファに蓄積し,150サンプル（150ms）のウィンドウを50サンプル（50ms）ホップで切り出す.
-2/3オーバーラップで特徴量を抽出する.（図\ref{fig:window-buffer}参照）.
+\textbf{責務}：
+連続サンプル列を時系列ウィンドウに分割し,特徴抽出処理の入力を生成する.
+
+\textbf{入出力}：
+入力：連続するsEMGサンプル  
+出力：150サンプル長のウィンドウ
+
+\textbf{概要}：
+内部バッファにサンプルを蓄積し,
+150サンプル（150ms）のウィンドウを50サンプル（50ms）ホップで切り出す.
+これにより2/3オーバーラップのウィンドウ系列を生成する（図\ref{fig:window-buffer}）.
 
 \begin{figure}[htbp]
     \centering
@@ -216,12 +217,17 @@ Raspberry Pi Pico 2 WとのBLE通信を担当.
 
 \subsubsection{EmgFeatureExtractor（特徴抽出）}
 \label{subsubsec:feature-extractor}
-150サンプルのウィンドウから10次元特徴ベクトルを抽出.
-時間領域（MAV, Variance, AW, Hjorth Complexity）,
-周波数領域（CPS, LFO）,
-線形予測（AR係数）の3カテゴリで構成（表\ref{tab:features}）.
-抽出後,z-score標準化を行い次段に渡す.
+\textbf{責務}：
+ウィンドウ化されたsEMG信号から分類用の特徴量を抽出する.
 
+\textbf{入出力}：
+入力：150サンプルのsEMGウィンドウ  
+出力：10次元特徴ベクトル（正規化後）
+
+\textbf{概要}：
+時間領域,周波数領域,線形予測の3カテゴリから構成される
+10次元特徴量を抽出する（表\ref{tab:features}）.
+抽出後,z-score標準化を行い次段の推論・学習処理へ渡す.
 \begin{table}[htbp]
 \centering
 \caption{抽出する10次元特徴量}
@@ -238,9 +244,18 @@ Raspberry Pi Pico 2 WとのBLE通信を担当.
 
 \subsubsection{EmgMlService（推論・学習）}
 \label{subsubsec:ml-service}
-Flutter層とiOS層（Core ML）の橋渡しを行い,
-Method Channel経由でNeural Engineを活用した推論とon-device学習を実現（図\ref{fig:ml-architecture}）.
-10次元特徴ベクトルから4クラス確率分布を返却する.
+\textbf{責務}：
+Flutter層とiOS Native層を接続し,推論およびオンデバイス学習を実行する.
+
+\textbf{入出力}：
+入力：10次元特徴ベクトル  
+出力：4クラスの確率分布
+
+\textbf{概要}：
+Method Channelを介してiOS Native層のCore MLモデルを呼び出し,
+Neural Engineを用いた推論を実行する.
+また,\texttt{MLUpdateTask}を用いたオンデバイス学習を行い,
+更新後のモデルを永続化する（図\ref{fig:ml-architecture}）.
 
 \begin{figure}[htbp]
     \centering
@@ -288,30 +303,36 @@ Method Channel経由でNeural Engineを活用した推論とon-device学習を�
 
 \subsubsection{EmgDatasetRecorder（データ記録）}
 \label{subsubsec:dataset-recorder}
-On-device学習用のラベル付きデータセットを収集.
-ユーザー指定のラベルと記録時間に従い,
-BLE Stream → ウィンドウ分割 → 特徴抽出を自動実行し,
-\texttt{\{features, classLabel, timestamp\}}形式でJSON保存する.
-このデータはEmgMlServiceの\texttt{train()}に直接渡すことで学習に利用できる.
+\textbf{責務}：
+オンデバイス学習に用いるラベル付き特徴量データを管理・保存する.
 
-\subsection{リアルタイム推論と精度測定}
-本システムの主要機能として,BLE経由で受信したsEMG信号をリアルタイムに分類し,
-その精度を定量的に測定する機能を実装した.
-この機能は\texttt{EmgRealtimeInferencePanel}ウィジェットとして実装され,
-前述の各Service（\ref{subsubsec:ble-service}, \ref{subsubsec:window-buffer}, 
-\ref{subsubsec:feature-extractor}, \ref{subsubsec:ml-service}）を組み合わせて動作する.
+\textbf{入出力}：
+入力：特徴量ベクトルおよびユーザ指定ラベル  
+出力：\texttt{\{features, classLabel, timestamp\}}形式のデータセット
 
-\subsubsection{リアルタイム推論フロー}
+\textbf{概要}：
+特徴量と対応ラベルをメモリ上に保持し,
+JSON形式での保存および学習処理への受け渡しを行う.
+収集したデータは\texttt{EmgMlService}の学習処理に直接利用可能な形式とした.
+
+\subsubsection{共通処理パイプライン}
+推論およびデータ記録では,以下の処理を共通パイプラインとして用いる.
 \begin{enumerate}
-\item BleServiceからパケットStreamを購読
-\item EmgWindowBufferで150ms/50msホップのウィンドウ切り出し
-\item EmgFeatureExtractorで10次元特徴量抽出・正規化
-\item EmgMlServiceでNeural Engine推論（4クラス確率分布取得）
-\item UI更新：最も確率の高いラベルと各クラスの確率を表示
+\item BleServiceから受信したパケットStreamを購読する
+\item EmgWindowBufferで150ms窓を50msホップで切り出す
+\item EmgFeatureExtractorで10次元特徴量を抽出し正規化する
+\item EmgMlServiceで推論（および必要に応じて学習）を実行する
 \end{enumerate}
+\pagebreak
 
-このフローは非同期で連続実行され,約50ms（ホップ間隔）ごとに新しい推論結果が得られる.
-\texttt{\_busy}フラグにより推論中の重複実行を防止し,安定したリアルタイム動作を実現している.
+\subsection{用途（UI）ごとの機能}
+本節では,\ref{subsubsec:ble-service}で述べたServiceクラス群を用いて実装した主要機能を,
+対応するUI単位で説明する.各機能は共通の信号処理パイプラインに基づいて動作する.
+
+\subsubsection{リアルタイム推論（\texttt{EmgRealtimeInferencePanel}）}
+\textbf{目的}：受信したsEMG信号をリアルタイムに分類し,推論結果を可視化する.\\
+\textbf{使用Service}：BleService,EmgWindowBuffer,EmgFeatureExtractor,EmgMlService.\\
+\textbf{処理}：共通処理パイプラインに従い,50ms間隔で推論結果（4クラス確率）を更新する.
 
 \begin{figure}[htbp]
     \centering
@@ -320,29 +341,16 @@ BLE Stream → ウィンドウ分割 → 特徴抽出を自動実行し,
     \label{fig:realtime-inference}
 \end{figure}
 
-\subsubsection{推論結果の可視化}
-図\ref{fig:realtime-inference}に示すように,
-画面上部には正規化されたsEMG波形をリアルタイムで表示し,
-下部には現在の推論結果を表示する.
-各ジェスチャ（paper, cizer, rock, pinch）の確率をプログレスバーで視覚化し,
-最も確率の高いラベルを強調表示する.
+\textbf{表示内容}：図\ref{fig:realtime-inference}に示すように,sEMG波形と各クラスの確率分布,
+および最尤ラベルを表示する.
 
-\subsubsection{精度測定機能}
-定量的な性能評価のため,ラベルごとの認識精度を測定する機能を実装した（図\ref{fig:accuracy-measurement}）.
-ユーザーが特定のジェスチャを実行しながらラベルボタンを押下すると,
-3秒間の推論結果を集計し,正解率を算出する.
+\pagebreak
+\subsubsection{精度測定（ラベル別Top-1正解率）}
+\textbf{目的}：特定ジェスチャ実行中の認識性能を簡易に定量化する.\\
+\textbf{使用Service}：BleService,EmgWindowBuffer,EmgFeatureExtractor,EmgMlService.\\
+\textbf{処理}：ユーザが測定対象ラベルを選択し,一定時間（3秒間）推論結果を集計して,
+測定対象ラベルと一致した割合（\%）を算出する.
 
-測定ロジックは以下の通り：
-\begin{itemize}
-\item 測定中フラグ（\texttt{\_measuring}）をtrueに設定
-\item 測定対象ラベル（\texttt{\_measuringLabel}）を記録
-\item 3秒間,各推論結果の\texttt{labelIndex}が測定対象と一致するか判定
-\item 正解数/総推論回数から精度（\%）を算出
-\item 結果をプログレスバーで可視化（緑：80\%以上,オレンジ：60-80\%,赤：60\%未満）
-\end{itemize}
-
-この機能により,On-device学習前後の精度変化や,
-ユーザー固有パターンへの適応度を定量的に評価できる.
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.35\linewidth]{src/inference_analize_screen.jpg}
@@ -350,26 +358,12 @@ BLE Stream → ウィンドウ分割 → 特徴抽出を自動実行し,
 \label{fig:accuracy-measurement}
 \end{figure}
 
-\subsection{データセット記録とOn-device学習}
-On-device学習によるユーザー適応を実現するため,
-ラベル付きデータセットの収集・保存・学習機能を実装した.
-この機能は\texttt{EmgDatasetRecorder}（\ref{subsubsec:dataset-recorder}）を中心に,
-複数のServiceを統合して動作する.
-
-\subsubsection{データセット記録フロー}
-ユーザーは記録したいジェスチャのボタンを押下することで,
-そのジェスチャに対応するラベル付きデータを自動収集できる.
-
-
-
-ボタン押下中,以下の処理が自動実行される：
-\begin{enumerate}
-\item BleServiceからリアルタイムでパケット受信
-\item EmgWindowBufferで150ms/50msホップのウィンドウ切り出し
-\item EmgFeatureExtractorで10次元特徴量抽出
-\item \texttt{\{features: [10次元], classLabel: "label", timestamp: "ISO8601"\}}形式でメモリに蓄積
-\item 画面上部に蓄積行数（rows in memory）を表示
-\end{enumerate}
+\pagebreak
+\subsubsection{データセット記録（ラベル付き特徴量の収集）}
+\textbf{目的}：オンデバイス学習用のラベル付きデータセットを端末上で収集する.\\
+\textbf{使用Service}：BleService,EmgWindowBuffer,EmgFeatureExtractor,EmgDatasetRecorder.\\
+\textbf{処理}：ユーザがジェスチャのラベルを指定して記録を開始すると,
+共通処理パイプラインの(1)〜(3)を実行し,特徴量にラベルと時刻を付与して蓄積する.
 
 \begin{figure}[htbp]
     \centering
@@ -378,51 +372,17 @@ On-device学習によるユーザー適応を実現するため,
     \label{fig:dataset-recorder}
 \end{figure}
 
-この方式により,ユーザーは複数のジェスチャを順次記録し,
-1つのセッション内で多クラスのデータセットを構築できる.
-
-
-
 \subsubsection{データの保存とエクスポート}
-収集したデータセットは,以下の2つの用途で利用される：
-
-\paragraph{1. JSON保存（ローカルストレージ）}
-\texttt{SAVE (overwrite) → emg\_dataset.json}ボタンにより,
-メモリ上のデータセットを\texttt{getApplicationDocumentsDirectory()}配下にJSON形式で保存する.
-ファイルフォーマットは以下の通り:
-\begin{verbatim}
-[
-  {"features": [f0,...,f9], "classLabel": "paper", "ts": "..."},
-  {"features": [f0,...,f9], "classLabel": "cizer", "ts": "..."},
-  ...
-]
-\end{verbatim}
-
-\paragraph{2. エクスポート（外部解析用）}
-\texttt{EXPORT (Share Sheet)}ボタンにより,
-保存したJSONファイルをiOSのShare Sheet経由でエクスポートできる.
-これにより,以下の用途に利用可能となる：
-\begin{itemize}
-\item Pythonスクリプトによるオフライン解析
-\item 事前学習用データセットとしての活用
-\item 論文執筆時の実験データとしての保管
-\end{itemize}
-
+収集したデータセットはローカルストレージへJSON形式で保存し,
+必要に応じてShare Sheet経由で外部へエクスポート可能とした.
+これにより,オフライン解析や事前学習用データとして利用できる.
 \subsubsection{On-device学習の実行}
-\texttt{TRAIN ON-DEVICE}ボタンにより,
-収集したデータセットを用いてCore MLモデルの重みを更新する.
-内部では以下の処理が実行される：
-\begin{enumerate}
-\item メモリ上のデータセットを\texttt{LabeledEmgSample}のリストに変換
-\item EmgMlService（\ref{subsubsec:ml-service}）の\texttt{train()}メソッド呼び出し
-\item Method Channel経由でiOS Native層に送信
-\item Core MLの\texttt{MLUpdateTask}でNeural Engine上で学習実行
-\item 学習後の重みを永続化（次回起動時に自動ロード）
-\end{enumerate}
-
-学習完了後,前述の精度測定機能（\ref{fig:accuracy-measurement}）により,
-適応前後の性能変化を定量的に確認できる.
-
+\textbf{目的}：収集データを用いて端末上でモデルを更新し,個人差への適応を行う.\\
+\textbf{使用Service}：EmgMlService,EmgDatasetRecorder.\\
+\textbf{処理}：保存済みデータセットを学習用形式に変換し,
+Method Channel経由でiOS Native層へ渡して\texttt{MLUpdateTask}により学習を実行する.
+学習後のモデルは永続化され,次回起動時に自動ロードされる.
+学習前後の性能変化は精度測定機能（図\ref{fig:accuracy-measurement}）により確認する.
 \subsubsection{メモリクリア}
 \texttt{CLEAR (memory)}ボタンにより,
 メモリ上のデータセットを消去し,新しいセッションを開始できる.
