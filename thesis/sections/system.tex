@@ -1,5 +1,8 @@
 \chapter{システム構成およびデータ収集}
 
+% =====================
+% システム全体アーキテクチャ
+% =====================
 \section{システム全体アーキテクチャ}
 本システムは,大別して3層からなるアーキテクチャで構成される（図\ref{fig:system}）.
 
@@ -39,102 +42,392 @@ BLE通信,データバッファリング,セッション管理を行うService�
 \pagebreak
 
 
+% =====================
+% ハードウェア構成
+% ====================
 \section{ハードウェア構成}
-電極配置,アンプ,ADコンバータ,マイコン/SoCなどハードウェア要素と仕様を示す.
+本システムで使用するハードウェアコンポーネントの仕様を以下に示す.
+Raspberry Pi Pico 2 W をマイコンとして利用し電源とアナログセンサーの値取得を行い,BLE経由でモバイル端末へ送信する.
 
-\pagebreak
-
-\section{ソフトウェア構成}
-本システムのソフトウェアは,ファームウェア,信号処理パイプライン,推論モジュール,通信プロトコルの4つの主要コンポーネントで構成される.
+\subsection{ハードウェアの選定}
+\begin{table}[htbp]
+\centering
+\caption{ハードウェア構成一覧}
+\label{tab:hardware}
+\begin{tabular}{lll}
+\hline
+\textbf{コンポーネント} & \textbf{型番/仕様} & \textbf{用途} \\ \hline
+マイコン & Raspberry Pi Pico 2 W & 信号サンプリング・BLE通信 \\
+sEMGセンサー & MyoWare 2.0 筋電位センサー & 表面筋電位計測 \\
+開発環境 & MicroPython & ファームウェア実装 \\ \hline
+\end{tabular}
+\end{table}
 
 \subsection{ファームウェア（Raspberry Pi Pico 2 W）}
 MicroPythonベースのBLE Peripheral実装により,以下の機能を提供する：
 
 \begin{itemize}
-\item \textbf{高速サンプリング}：内蔵ADC4を用いた1kHz連続サンプリング
-\item \textbf{BLE GATT サーバー}：カスタムサービス（UUID: \texttt{12345678-1234-5678-1234-56789ABCDEF0}）によるデータ配信
-\item \textbf{パケット化}：シーケンス番号（2バイト）+ 10サンプル（各4バイトfloat）の42バイト/パケット構成
-\item \textbf{送信レート}：約100Hz（10サンプル周期）でNotify配信
+\item \textbf{サンプリング}：内蔵ADC4を用いた1kHz連続サンプリング
+\item \textbf{パケット}  ：シーケンス番号（2バイト）+ 10サンプル（各4バイトfloat）の42バイト
+\item \textbf{送信レート}：100Hz（10パケット周期）でNotify配信
 \end{itemize}
 
-\subsection{BLE通信層（Flutter）}
-\texttt{flutter\_blue\_plus}ライブラリを用いたBLE Central実装により,以下を実現する：
+\pagebreak
 
+% =====================
+% ソフトウェア構成
+% =====================
+\section{ソフトウェア構成}
+Flutterにおけるメインアプリケーションのソフトウェア構成はクリーンアーキテクチャを採用し,それぞれのパイプラインや演算処理をServiceとして定義したのちインスタンスをRiverpodで状態管理して各UIで参照する.
+（図\ref{fig:flutter-arch}）
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+      font=\small,
+      node distance=8mm and 15mm,
+      box/.style={draw, rounded corners, align=center, minimum width=30mm, minimum height=9mm},
+      arrow/.style={-Latex, thick}
+    ]
+  
+      % Widgets層
+      \node[box, fill=blue!10] (widgets) {Widgets};
+  
+      % Riverpod Providers層
+      \node[box, fill=green!10, below=of widgets] (providers) {Riverpod Providers};
+  
+      % Services層
+      \node[box, fill=orange!10, below=of providers] (services) {Services};
+  
+      % 矢印（Providersがインスタンスを生成・注入）
+      \draw[arrow] (providers) -- node[left]{\footnotesize インスタンス生成} (services);
+      \draw[arrow] (providers) -- node[right]{\footnotesize 依存性注入} (widgets);
+  
+      % Services層の詳細（右側に配置）
+      \node[align=left, font=\footnotesize, right=25mm of providers, anchor=west] (services-detail) {
+        \textbf{Service群}\\
+        - BleService: BLE通信処理\\
+        - EmgMlService: Modelの読み込み,推論,学習\\
+        - EmgWindowBuffer: センサデータのwindow buffer\\
+        - EmgDatasetRecorder: データセットの記録\\
+        - EmgFeatureExtractor: 特徴量の抽出
+      };
+  
+    \end{tikzpicture}
+    \caption{Flutter層のアーキテクチャ構成とRiverpodによる状態管理}
+    \label{fig:flutter-arch}  
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.3\linewidth]{src/idling_screen.png}
+    \caption{アプリケーションのアイドリング状態画面}
+    \label{fig:idling-screen}
+\end{figure}
+
+\subsection{実装したServiceクラス群}
+本システムでは,データフロー上の各処理をServiceクラスとして分離し,
+Riverpod Providersによる依存性注入により結合している.
+以下に各Serviceの役割を示す.
+
+\subsubsection{BleService（BLE通信）}
+\label{subsubsec:ble-service}
+Raspberry Pi Pico 2 WとのBLE通信を担当.
+\texttt{flutter\_blue\_plus}によりBLE Central機能を実装し,
+デバイス名でフィルタリング後,カスタムUUIDのキャラクタリスティックからNotify購読する.
+42バイトパケット（シーケンス2B + 10サンプル40B）を\texttt{BleDataPacket}としてStreamで配信（図\ref{fig:ble-flow}参照）.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+      font=\footnotesize,
+      node distance=6mm,
+      box/.style={draw, rounded corners, align=center, minimum width=22mm, minimum height=7mm},
+      arrow/.style={-Latex, thick}
+    ]
+  
+      \node[box, fill=blue!10] (scan) {スキャン};
+      \node[box, fill=blue!10, right=of scan] (connect) {接続};
+      \node[box, fill=green!10, right=of connect] (notify) {Notify};
+      \node[box, fill=orange!10, right=of notify] (parse) {パース};
+      \node[box, fill=red!10, right=of parse] (stream) {Stream};
+  
+      \draw[arrow] (scan) -- (connect);
+      \draw[arrow] (connect) -- (notify);
+      \draw[arrow] (notify) -- (parse);
+      \draw[arrow] (parse) -- (stream);
+  
+      % パケット構造（下部）
+      \node[below=12mm of notify, align=center, font=\footnotesize] (packet) {
+        \textbf{パケット}\\
+        {[}seq:2B{]} + {[}10samples:40B{]}
+      };
+  
+    \end{tikzpicture}
+    \caption{BLE通信フローとパケット構造}
+    \label{fig:ble-flow}
+\end{figure}
+
+\subsubsection{EmgWindowBuffer（データバッファリング）}
+\label{subsubsec:window-buffer}
+連続サンプルを時系列バッファに蓄積し,150サンプル（150ms）のウィンドウを50サンプル（50ms）ホップで切り出す.
+2/3オーバーラップで特徴量を抽出する.（図\ref{fig:window-buffer}参照）.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+      font=\footnotesize,
+      box/.style={draw, minimum width=3mm, minimum height=6mm, inner sep=0pt}
+    ]
+  
+      % 連続データストリーム
+      \foreach \i in {0,...,19} {
+        \node[box, fill=gray!20] at (\i*0.3, 0) {};
+      }
+      \node[right] at (6, 0) {\footnotesize 連続データストリーム};
+  
+      % Window 1
+      \draw[red, very thick] (0, 0.4) rectangle (1.35, -0.4);
+      \node[red, above] at (0.675, 0.5) {Win1 (150)};
+  
+      % Window 2
+      \draw[blue, very thick] (0.45, 0.3) rectangle (1.8, -0.3);
+      \node[blue, above] at (1.125, 0.8) {Win2};
+  
+      % Window 3
+      \draw[green!60!black, very thick] (0.9, 0.2) rectangle (2.25, -0.2);
+      \node[green!60!black, above] at (1.575, 1.1) {Win3};
+  
+      % Hop説明
+      \draw[<->, thick] (0, -0.8) -- (0.45, -0.8);
+      \node[below] at (0.225, -0.8) {\tiny hop=50};
+  
+      % パラメータ説明
+      \node[align=left, font=\footnotesize] at (3.5, -1.2) {
+        Window: 150サンプル (150ms)\\
+        Hop: 50サンプル (50ms)\\
+        Overlap: 2/3 (100サンプル)
+      };
+  
+    \end{tikzpicture}
+    \caption{ウィンドウバッファリングによるデータ分割}
+    \label{fig:window-buffer}
+\end{figure}
+
+\subsubsection{EmgFeatureExtractor（特徴抽出）}
+\label{subsubsec:feature-extractor}
+150サンプルのウィンドウから10次元特徴ベクトルを抽出.
+時間領域（MAV, Variance, AW, Hjorth Complexity）,
+周波数領域（CPS, LFO）,
+線形予測（AR係数）の3カテゴリで構成（表\ref{tab:features}）.
+抽出後,z-score標準化を行い次段に渡す.
+
+\begin{table}[htbp]
+\centering
+\caption{抽出する10次元特徴量}
+\label{tab:features}
+\begin{tabular}{lll}
+\hline
+\textbf{カテゴリ} & \textbf{特徴量} & \textbf{次元数} \\ \hline
+時間領域 & MAV, Variance, AW, Hjorth Complexity & 4 \\
+周波数領域 & CPS, LFO & 2 \\
+線形予測 & AR(4)係数 & 4 \\ \hline
+\multicolumn{2}{l}{\textbf{合計}} & \textbf{10} \\ \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{EmgMlService（推論・学習）}
+\label{subsubsec:ml-service}
+Flutter層とiOS層（Core ML）の橋渡しを行い,
+Method Channel経由でNeural Engineを活用した推論とon-device学習を実現（図\ref{fig:ml-architecture}）.
+10次元特徴ベクトルから4クラス確率分布を返却する.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+      font=\footnotesize,
+      node distance=15mm,
+      box/.style={draw, rounded corners, align=left, minimum width=50mm},
+      arrow/.style={-Latex, very thick}
+    ]
+  
+      % Flutter層
+      \node[box, fill=blue!10, minimum height=20mm] (flutter) {
+        \textbf{Flutter層 (Dart)}\\[2mm]
+        - EmgMlService\\
+        - 特徴量の受け取り\\
+        - Method Channel呼び出し\\
+        - 結果のパース・配信
+      };
+  
+      % iOS Native層
+      \node[box, fill=orange!10, below=of flutter, minimum height=25mm] (ios) {
+        \textbf{iOS Native層 (Swift)}\\[2mm]
+        - EmgMlPlugin\\
+        - Core MLモデルロード\\
+        - Neural Engineで推論実行\\
+        - On-device学習 (MLUpdateTask)\\
+        - 結果をFlutterに返却
+      };
+  
+      % 矢印
+      \draw[arrow] (flutter.south) -- node[right, align=left] {
+        \scriptsize Method Channel\\
+        \scriptsize predict(features)
+      } (ios.north);
+      
+      \draw[arrow] (ios.north) -- node[left, align=left] {
+        \scriptsize 非同期返却\\
+        \scriptsize EmgPrediction
+      } (flutter.south);
+  
+    \end{tikzpicture}
+    \caption{Flutter層とiOS Native層の推論フロー}
+    \label{fig:ml-architecture}
+\end{figure}
+
+\subsubsection{EmgDatasetRecorder（データ記録）}
+\label{subsubsec:dataset-recorder}
+On-device学習用のラベル付きデータセットを収集.
+ユーザー指定のラベルと記録時間に従い,
+BLE Stream → ウィンドウ分割 → 特徴抽出を自動実行し,
+\texttt{\{features, classLabel, timestamp\}}形式でJSON保存する.
+このデータはEmgMlServiceの\texttt{train()}に直接渡すことで学習に利用できる.
+
+\subsection{リアルタイム推論と精度測定}
+本システムの主要機能として,BLE経由で受信したsEMG信号をリアルタイムに分類し,
+その精度を定量的に測定する機能を実装した.
+この機能は\texttt{EmgRealtimeInferencePanel}ウィジェットとして実装され,
+前述の各Service（\ref{subsubsec:ble-service}, \ref{subsubsec:window-buffer}, 
+\ref{subsubsec:feature-extractor}, \ref{subsubsec:ml-service}）を組み合わせて動作する.
+
+\subsubsection{リアルタイム推論フロー}
+\begin{enumerate}
+\item BleServiceからパケットStreamを購読
+\item EmgWindowBufferで150ms/50msホップのウィンドウ切り出し
+\item EmgFeatureExtractorで10次元特徴量抽出・正規化
+\item EmgMlServiceでNeural Engine推論（4クラス確率分布取得）
+\item UI更新：最も確率の高いラベルと各クラスの確率を表示
+\end{enumerate}
+
+このフローは非同期で連続実行され,約50ms（ホップ間隔）ごとに新しい推論結果が得られる.
+\texttt{\_busy}フラグにより推論中の重複実行を防止し,安定したリアルタイム動作を実現している.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.35\linewidth]{src/realtiime_inference_screen.jpg}
+    \caption{リアルタイム推論画面（波形表示と確率分布）}
+    \label{fig:realtime-inference}
+\end{figure}
+
+\subsubsection{推論結果の可視化}
+図\ref{fig:realtime-inference}に示すように,
+画面上部には正規化されたsEMG波形をリアルタイムで表示し,
+下部には現在の推論結果を表示する.
+各ジェスチャ（paper, cizer, rock, pinch）の確率をプログレスバーで視覚化し,
+最も確率の高いラベルを強調表示する.
+
+\subsubsection{精度測定機能}
+定量的な性能評価のため,ラベルごとの認識精度を測定する機能を実装した（図\ref{fig:accuracy-measurement}）.
+ユーザーが特定のジェスチャを実行しながらラベルボタンを押下すると,
+3秒間の推論結果を集計し,正解率を算出する.
+
+測定ロジックは以下の通り：
 \begin{itemize}
-\item \textbf{デバイス自動検出}：デバイス名（\texttt{picow\_temp}）によるスキャン・自動接続
-\item \textbf{データ受信}：Notify購読による非同期パケット受信（\texttt{BleDataPacket}）
-\item \textbf{エラーハンドリング}：接続断・パケットロストの検出と再接続
-\item \textbf{Stream API}：\texttt{packetStream}によるリアクティブデータ配信
+\item 測定中フラグ（\texttt{\_measuring}）をtrueに設定
+\item 測定対象ラベル（\texttt{\_measuringLabel}）を記録
+\item 3秒間,各推論結果の\texttt{labelIndex}が測定対象と一致するか判定
+\item 正解数/総推論回数から精度（\%）を算出
+\item 結果をプログレスバーで可視化（緑：80\%以上,オレンジ：60-80\%,赤：60\%未満）
 \end{itemize}
 
-\subsection{信号処理パイプライン}
+この機能により,On-device学習前後の精度変化や,
+ユーザー固有パターンへの適応度を定量的に評価できる.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.35\linewidth]{src/inference_analize_screen.jpg}
+\caption{精度測定画面（ラベルごとの認識精度）}
+\label{fig:accuracy-measurement}
+\end{figure}
 
-\subsubsection{バッファリング（\texttt{EmgWindowBuffer}）}
-受信した生サンプルを時系列バッファに蓄積し,以下のウィンドウ分割処理を行う：
+\subsection{データセット記録とOn-device学習}
+On-device学習によるユーザー適応を実現するため,
+ラベル付きデータセットの収集・保存・学習機能を実装した.
+この機能は\texttt{EmgDatasetRecorder}（\ref{subsubsec:dataset-recorder}）を中心に,
+複数のServiceを統合して動作する.
 
+\subsubsection{データセット記録フロー}
+ユーザーは記録したいジェスチャのボタンを押下することで,
+そのジェスチャに対応するラベル付きデータを自動収集できる.
+
+
+
+ボタン押下中,以下の処理が自動実行される：
+\begin{enumerate}
+\item BleServiceからリアルタイムでパケット受信
+\item EmgWindowBufferで150ms/50msホップのウィンドウ切り出し
+\item EmgFeatureExtractorで10次元特徴量抽出
+\item \texttt{\{features: [10次元], classLabel: "label", timestamp: "ISO8601"\}}形式でメモリに蓄積
+\item 画面上部に蓄積行数（rows in memory）を表示
+\end{enumerate}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.35\linewidth]{src/dateset_recorder_screen.jpg}
+    \caption{データセット記録画面（ラベル選択と保存・学習）}
+    \label{fig:dataset-recorder}
+\end{figure}
+
+この方式により,ユーザーは複数のジェスチャを順次記録し,
+1つのセッション内で多クラスのデータセットを構築できる.
+
+
+
+\subsubsection{データの保存とエクスポート}
+収集したデータセットは,以下の2つの用途で利用される：
+
+\paragraph{1. JSON保存（ローカルストレージ）}
+\texttt{SAVE (overwrite) → emg\_dataset.json}ボタンにより,
+メモリ上のデータセットを\texttt{getApplicationDocumentsDirectory()}配下にJSON形式で保存する.
+ファイルフォーマットは以下の通り:
+\begin{verbatim}
+[
+  {"features": [f0,...,f9], "classLabel": "paper", "ts": "..."},
+  {"features": [f0,...,f9], "classLabel": "cizer", "ts": "..."},
+  ...
+]
+\end{verbatim}
+
+\paragraph{2. エクスポート（外部解析用）}
+\texttt{EXPORT (Share Sheet)}ボタンにより,
+保存したJSONファイルをiOSのShare Sheet経由でエクスポートできる.
+これにより,以下の用途に利用可能となる：
 \begin{itemize}
-\item \textbf{ウィンドウ長}：150サンプル（1kHzで150ms）
-\item \textbf{ホップ長}：50サンプル（50ms）による2/3オーバーラップ
-\item \textbf{リアルタイム切り出し}：\texttt{popReadyWindows()}により準備完了ウィンドウを順次取得
+\item Pythonスクリプトによるオフライン解析
+\item 事前学習用データセットとしての活用
+\item 論文執筆時の実験データとしての保管
 \end{itemize}
 
-\subsubsection{特徴抽出（C++/FFI）}
-ネイティブライブラリ（\texttt{native\_engine.framework}）により高速な特徴量計算を実現：
+\subsubsection{On-device学習の実行}
+\texttt{TRAIN ON-DEVICE}ボタンにより,
+収集したデータセットを用いてCore MLモデルの重みを更新する.
+内部では以下の処理が実行される：
+\begin{enumerate}
+\item メモリ上のデータセットを\texttt{LabeledEmgSample}のリストに変換
+\item EmgMlService（\ref{subsubsec:ml-service}）の\texttt{train()}メソッド呼び出し
+\item Method Channel経由でiOS Native層に送信
+\item Core MLの\texttt{MLUpdateTask}でNeural Engine上で学習実行
+\item 学習後の重みを永続化（次回起動時に自動ロード）
+\end{enumerate}
 
-\begin{itemize}
-\item \textbf{時間領域特徴}：平均絶対値（MAV）,RMS,Zero Crossing,波形長
-\item \textbf{周波数領域特徴}：パワースペクトル密度の統計量
-\item \textbf{出力}：10次元特徴ベクトル（正規化済み）
-\item \textbf{性能}：ARMv8 NEON最適化によりウィンドウあたり<1ms処理
-\end{itemize}
+学習完了後,前述の精度測定機能（\ref{fig:accuracy-measurement}）により,
+適応前後の性能変化を定量的に確認できる.
 
-\subsection{推論モジュール（Core ML / iOS）}
+\subsubsection{メモリクリア}
+\texttt{CLEAR (memory)}ボタンにより,
+メモリ上のデータセットを消去し,新しいセッションを開始できる.
+これにより,異なる条件でのデータ収集を繰り返し実行可能となる.
 
-\subsubsection{Method Channel ブリッジ（\texttt{EmgMlPlugin.swift}）}
-Flutter-iOS間の通信インターフェースを提供：
 
-\begin{itemize}
-\item \textbf{loadModel}：\texttt{.mlmodel}のコンパイルとメモリロード
-\item \textbf{predict}：10次元特徴量を受け取り,クラス確率分布を返却
-\item \textbf{train}：ラベル付きサンプルセットでon-device学習実行（\texttt{MLUpdateTask}）
-\end{itemize}
 
-\subsubsection{Core ML 推論エンジン}
-\begin{itemize}
-\item \textbf{モデル構成}：全結合ニューラルネットワーク（入力10次元,出力4クラス）
-\item \textbf{計算ユニット}：Neural Engine優先（\texttt{computeUnits: .all}）
-\item \textbf{更新可能モデル}：\texttt{UpdatableClassifier}により学習後の重み永続化
-\item \textbf{出力}：\texttt{classProbability}（確率分布）+ argmax（予測ラベル）
-\end{itemize}
 
-\subsection{データ管理層（Flutter Service）}
-
-\subsubsection{セッション管理（\texttt{EmgDatasetRecorder}）}
-\begin{itemize}
-\item \textbf{ディレクトリ構造}：\texttt{/emg\_data/session\_<ISO8601>/}配下に\texttt{manifest.json}とサンプルCSV
-\item \textbf{CSVフォーマット}：\texttt{t\_ms\_packet, seq\_packet, sample\_idx, value\_norm}の4列
-\item \textbf{ファイル名規則}：\texttt{<ISO8601>\_<label>\_sNNNN.csv}（1サンプル=5秒間連続データ）
-\item \textbf{メタデータ}：サンプリング周波数,ラベル情報,前処理パラメータを記録
-\end{itemize}
-
-\subsubsection{状態管理（Riverpod）}
-\begin{itemize}
-\item \textbf{BLE接続状態}：\texttt{bleServiceProvider}による接続・スキャン管理
-\item \textbf{推論状態}：\texttt{emgMlServiceProvider}によるモデルライフサイクル管理
-\item \textbf{記録状態}：\texttt{emgDatasetRecorderProvider}によるセッション制御
-\item \textbf{リアクティブUI}：Stream購読による自動再描画
-\end{itemize}
-
-\subsection{通信プロトコル仕様}
-BLE通信は以下の仕様に従う：
-
-\begin{itemize}
-\item \textbf{プロトコル}：BLE GATT（Generic Attribute Profile）
-\item \textbf{MTU}：42バイト/パケット（シーケンス2B + float32×10）
-\item \textbf{エンディアン}：リトルエンディアン
-\item \textbf{サンプリング保証}：シーケンス番号によるパケットロスト検出
-\item \textbf{遅延特性}：BLE通信7-15ms + 処理遅延<5ms = 総遅延<20ms/パケット
-\end{itemize}
-
-\section{sEMGデータ収集方法}
-被験者,装着方法,タスク設計,サンプリング条件などデータ収集手順を記載する.
