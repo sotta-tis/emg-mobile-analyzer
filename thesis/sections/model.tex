@@ -1,101 +1,41 @@
 \chapter{モデル設計および学習手法}
 
 \section{特徴量設計}
-本研究では、表面筋電位信号から以下の10次元特徴ベクトルを抽出する。
-各特徴量は150サンプル（サンプリング周波数1000Hzで150ms相当）の時間窓から計算される。
+本研究では,表面筋電位信号を150サンプル（1kHzで150ms）の時間窓に分割し,
+計算量と識別性能のバランスを考慮した10次元の特徴ベクトルを抽出する.
+特徴量の内訳は,時間領域4次元,周波数領域2次元,自己回帰モデル係数4次元である.
 
 \subsection{時間領域特徴量}
-\begin{enumerate}
-    \item \textbf{平均絶対値 (MVA: Mean Absolute Value)}
-    \begin{equation}
-        \text{MVA} = \frac{1}{N} \sum_{i=1}^{N} |x_i|
-    \end{equation}
-    
-    \item \textbf{分散 (Variance / Hjorth Activity)}
-    \begin{equation}
-        \sigma^2 = \frac{1}{N-1} \sum_{i=1}^{N} (x_i - \mu)^2
-    \end{equation}
-    
-    \item \textbf{平均波形長 (AW: Average Waveform Length)}
-    \begin{equation}
-        \text{AW} = \frac{1}{N-1} \sum_{i=1}^{N-1} |x_{i+1} - x_i|
-    \end{equation}
-    
-    \item \textbf{Hjorth Complexity}
-    
-    信号の複雑さを表す指標で、以下のように定義される：
-    \begin{equation}
-        \text{Mobility}(x) = \sqrt{\frac{\text{Var}(\frac{dx}{dt})}{\text{Var}(x)}}
-    \end{equation}
-    \begin{equation}
-        \text{Complexity} = \frac{\text{Mobility}(\frac{dx}{dt})}{\text{Mobility}(x)}
-    \end{equation}
-\end{enumerate}
+時間領域特徴量として,平均絶対値（MAV）,分散,平均波形長（AW）,
+Hjorth Complexityを用いる.代表例としてMAVは次式で定義される：
+\begin{equation}
+\mathrm{MAV} = \frac{1}{N}\sum_{i=1}^{N}|x_i|
+\end{equation}
+Hjorth Complexityは信号の複雑さを表す指標であり,
+本研究では標準的な定義に基づいて算出した（詳細は付録Aに示す）.
 
 \subsection{周波数領域特徴量}
-
-FFT（高速フーリエ変換）により周波数スペクトルを計算し、以下の特徴量を抽出する。
-入力信号にはHann窓を適用し、スペクトル漏れを抑制する。
-
-\begin{enumerate}
-    \setcounter{enumi}{4}
-    \item \textbf{スペクトル重心周波数 (CPS: Center Power Spectrum)}
-    \begin{equation}
-        \text{CPS} = \frac{\sum_{k=1}^{N/2} f_k \cdot P_k}{\sum_{k=1}^{N/2} P_k}
-    \end{equation}
-    ここで、\(f_k\)は周波数ビン、\(P_k\)はパワースペクトル密度を表す。
-    
-    \item \textbf{低周波帯エネルギー比 (LFO: Low Frequency Ratio)}
-    \begin{equation}
-        \text{LFO} = \frac{\sum_{f \leq 150\text{Hz}} P_f}{\sum_{k=1}^{N/2} P_k}
-    \end{equation}
-    150Hz以下の周波数帯域のパワーが全体に占める割合を表す。
-\end{enumerate}
+FFTにより周波数スペクトルを算出し,
+スペクトル重心周波数（CPS）および低周波帯エネルギー比（LFO）を抽出する.
+入力信号にはHann窓を適用した.
 
 \subsection{自己回帰モデル係数}
-
-\begin{enumerate}
-    \setcounter{enumi}{6}
-    \item \textbf{AR係数 (AR1--AR4)}
-    
-    4次自己回帰モデルの係数をYule-Walker法により推定する：
-    \begin{equation}
-        x_t = \sum_{j=1}^{4} a_j x_{t-j} + \epsilon_t
-    \end{equation}
-    
-    自己相関関数\(r[k]\)を用いて、以下のToeplitz方程式を解く：
-    \begin{equation}
-        \begin{bmatrix}
-        r[0] & r[1] & r[2] & r[3] \\
-        r[1] & r[0] & r[1] & r[2] \\
-        r[2] & r[1] & r[0] & r[1] \\
-        r[3] & r[2] & r[1] & r[0]
-        \end{bmatrix}
-        \begin{bmatrix}
-        a_1 \\ a_2 \\ a_3 \\ a_4
-        \end{bmatrix}
-        =
-        \begin{bmatrix}
-        r[1] \\ r[2] \\ r[3] \\ r[4]
-        \end{bmatrix}
-    \end{equation}
-    
-    これにより4つの係数\(a_1, a_2, a_3, a_4\)が得られる。
-\end{enumerate}
+信号の時系列構造を捉えるため,4次自己回帰（AR(4)）モデルを仮定し,
+Yule-Walker法により係数$a_1$～$a_4$を推定する.
+導出および行列表現の詳細は付録Aに示す.
 
 \subsection{特徴量の正規化}
-抽出された10次元特徴ベクトル\(\mathbf{f} = [f_1, f_2, \ldots, f_{10}]^T\)は、
-訓練データセットから計算された平均\(\mu_i\)と標準偏差\(\sigma_i\)を用いて正規化される：
+抽出した特徴ベクトルは,訓練データから算出した平均と標準偏差を用いて
+z-score正規化を行う：
 \begin{equation}
-    \tilde{f}_i = \frac{f_i - \mu_i}{\sigma_i + \epsilon}
+\tilde{f}_i = \frac{f_i - \mu_i}{\sigma_i + \epsilon}, \quad \epsilon = 10^{-6}.
 \end{equation}
-ここで、\(\epsilon = 10^{-6}\)はゼロ除算を防ぐための微小値である。
 
 \section{ニューラルネットワーク構成}
 
 \subsection{アーキテクチャ設計}
 
-本研究では、軽量かつ高速な推論を実現するため、2層の全結合ニューラルネットワーク（Multi-Layer Perceptron, MLP）を採用した。
+本研究では,軽量かつ高速な推論を実現するため,2層の全結合ニューラルネットワーク（Multi-Layer Perceptron, MLP）を採用した。
 ネットワーク構成を図\ref{fig:network_architecture}に示す。
 
 \begin{figure}[htbp]
@@ -105,62 +45,26 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
   \label{fig:network_architecture}
 \end{figure}
 
-図\ref{fig:network_architecture}に示すように、Core MLのInnerProduct層とActivation層を組み合わせて
-実装されている。ネットワークは以下の処理フローで構成される：
-
-\begin{enumerate}
-    \item \textbf{入力層（features）}：10次元の特徴ベクトル$\mathbf{x} \in \mathbb{R}^{10}$を受け取る。
-    
-    \item \textbf{第1のInnerProduct層}：10次元入力を24次元に変換
-    \begin{equation}
-        \mathbf{h}_{\text{pre}} = W_1 \mathbf{x} + \mathbf{b}_1
-    \end{equation}
-    ここで、$W_1 \in \mathbb{R}^{24 \times 10}$、$\mathbf{b}_1 \in \mathbb{R}^{24}$である。
-    この層は\textbf{固定層}であり、デバイス上での学習時には更新されない。
-    
-    \item \textbf{Activation層（ReLU）}：非線形変換を適用
-    \begin{equation}
-        \mathbf{h} = \text{ReLU}(\mathbf{h}_{\text{pre}}) = \max(0, \mathbf{h}_{\text{pre}})
-    \end{equation}
-    
-    \item \textbf{第2のInnerProduct層（Updatable）}：24次元を4クラスのlogitsに変換
-    \begin{equation}
-        \mathbf{z} = W_2 \mathbf{h} + \mathbf{b}_2
-    \end{equation}
-    ここで、$W_2 \in \mathbb{R}^{4 \times 24}$、$\mathbf{b}_2 \in \mathbb{R}^{4}$である。
-    この層は\textbf{更新可能層（Updatable）}であり、デバイス上での継続学習の対象となる。
-    
-    \item \textbf{Softmax層}：logitsをクラス確率に変換
-    \begin{equation}
-        p_i = \frac{\exp(z_i)}{\sum_{j=1}^{4} \exp(z_j)}, \quad i = 1, 2, 3, 4
-    \end{equation}
-    
-    \item \textbf{出力層（stringClassLabels）}：確率分布$\mathbf{p} = [p_1, p_2, p_3, p_4]^T$と
-    最大確率を持つクラスラベル（classLabel）を出力する。
-\end{enumerate}
-
 \subsection{全結合層採用の理由}
 
-本研究では畳み込み層（Convolutional Layer）ではなく全結合層（Dense Layer）を採用した。
-その主な理由は以下の通りである：
+本研究では,入力が設計特徴量で構成されていることから,
+畳み込み層ではなく全結合層を採用した.
+主な理由を以下に示す：
 
 \begin{itemize}
-    \item \textbf{AR係数の包含}：特徴量に4次自己回帰モデル（AR1--AR4）の係数が含まれる。
-    これらは信号全体の時系列依存性を捉えた大域的特徴であり、局所的なパターンを抽出する
-    畳み込み層よりも、全特徴を同時に考慮できる全結合層が適している。
-    
-    \item \textbf{特徴量の多様性}：入力特徴には時間領域（MVA、分散、AW、Complexity）、
-    周波数領域（CPS、LFO）、自己回帰係数（AR1--AR4）という異なる性質の特徴が混在する。
-    これらは異なる次元間に空間的な近接性がないため、畳み込みの局所受容野の利点を活かせない。
-    
-    \item \textbf{計算効率}：入力が10次元と低次元であるため、全結合層でも計算コストが小さく、
-    リアルタイム推論に十分な速度が得られる。
+    \item 入力特徴量にはAR係数を含む大域的な時系列情報が含まれ,局所受容野を前提とする畳み込み層の利点を活かしにくい.
+    \item 時間領域,周波数領域,自己回帰係数といった性質の異なる特徴量が混在しており,次元間に空間的近接性が存在しない.
+    \item 入力次元が10と小さく,全結合層でも十分に低い計算コストでリアルタイム推論が可能である.
 \end{itemize}
 
 \subsection{パラメータ数と計算量}
 
-各層のパラメータ数は以下の通りである：
 
+各層のパラメータ数を表\ref{tab:parameters}に示す.
+本モデルの総パラメータ数は364であり,
+順伝播に要する計算量は約672 FLOPsである.
+このように極めて軽量な構成であり,
+モバイルデバイス上でのリアルタイム推論が可能である.
 \begin{table}[htbp]
   \centering
   \caption{各層のパラメータ数}
@@ -177,40 +81,20 @@ FFT（高速フーリエ変換）により周波数スペクトルを計算し�
   \end{tabular}
 \end{table}
 
-順伝播時の浮動小数点演算回数（FLOPs）は：
-\begin{itemize}
-    \item 隠れ層：$24 \times (10 \times 2) = 480$ FLOPs（積和算）
-    \item 出力層：$4 \times (24 \times 2) = 192$ FLOPs
-    \item \textbf{合計：約672 FLOPs}
-\end{itemize}
-
-このように極めて軽量なモデルであり、モバイルデバイス上でのリアルタイム推論が可能である。
-
 \subsection{オンデバイス学習機能（Updatable Model）}
 
-本モデルはApple Core MLのUpdatable Model機能を用いて実装されており、
-デバイス上での継続学習（On-Device Learning）が可能である。
-重要な設計上の特徴として、\textbf{出力層（$W_2, \mathbf{b}_2$）のみを更新可能}とし、
-隠れ層（$W_1, \mathbf{b}_1$）は固定する。
+本モデルはCore MLのUpdatable Model機能を用いて実装されており,
+デバイス上での継続学習が可能である.
+設計上の特徴として,出力層（$W_2, \mathbf{b}_2$）のみを更新対象とし,
+隠れ層（$W_1, \mathbf{b}_1$）は固定した.
 
-この設計には以下の利点がある：
+この構成により,事前学習で獲得した特徴表現を保持したまま,
+ユーザー固有データに基づく分類境界の調整が可能となる.
+また,更新対象パラメータ数は100個（総パラメータの27.5\%）に限定され,
+モバイル端末上での学習においても計算コストを抑制できる.
 
-\begin{itemize}
-    \item \textbf{学習の安定性}：隠れ層を固定することで、既に獲得された汎用的な特徴表現を保持し、
-    過学習を抑制できる。
-    
-    \item \textbf{計算効率}：更新対象のパラメータが100個（総パラメータの27.5\%）に限定されるため、
-    勾配計算とパラメータ更新の計算コストが削減される。
-    
-    \item \textbf{Transfer Learning的アプローチ}：隠れ層が共通の特徴抽出器として機能し、
-    出力層のみを個人適応させることで、少量のデータでも効果的な学習が可能となる。
-\end{itemize}
-
-損失関数にはカテゴリカル交差エントロピーを使用し、最適化手法にはSGD（Stochastic Gradient Descent）
-またはAdam optimizerを採用している：
-
+学習時の損失関数にはカテゴリカル交差エントロピーを用いる：
 \begin{equation}
-    \mathcal{L} = -\sum_{i=1}^{4} y_i \log(p_i)
+\mathcal{L} = -\sum_{i=1}^{4} y_i \log(p_i)
 \end{equation}
-
-ここで、$y_i$は真のラベルのone-hotエンコーディング、$p_i$はモデルが出力する確率である。
+ここで$y_i$は正解ラベルのone-hot表現,$p_i$はモデルが出力するクラス確率である.
