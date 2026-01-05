@@ -1,9 +1,268 @@
-\chapter{提案手法}
+\chapter{実験および評価}
 
-\section{概要}
-提案手法の概要を述べる。
+\section{実験条件}
 
-\section{数式}
+\subsection{モデルの事前学習}
+
+デバイス上での継続学習の初期値として使用する事前学習済みモデルを、
+以下の条件で作成した。
+
+\subsubsection{データ収集}
+
+デバイス上のレコーダー機能を用いて、4種類のジェスチャ（rock, paper, pinch, cizer）を
+各約35秒ずつ記録した。EMG信号は150サンプルのウィンドウ（150ms @ 1000Hz）、
+50サンプルのホップ長（オーバーラップ率66.7\%）で処理され、
+1秒あたり約13個の10次元特徴ベクトルが生成された。
+
+\subsubsection{データセット構成}
+
+表\ref{tab:pretrain_dataset}に訓練データセットの構成を示す。
+
+\begin{table}[htbp]
+  \centering
+  \caption{事前学習用データセット}
+  \label{tab:pretrain_dataset}
+  \begin{tabular}{lrr}
+    \hline
+    クラス & サンプル数 & 記録時間 \\
+    \hline
+    rock（グー） & 460 & 約35秒 \\
+    paper（パー） & 464 & 約35秒 \\
+    pinch（つまみ） & 462 & 約35秒 \\
+    cizer（チョキ） & 462 & 約35秒 \\
+    \hline
+    \textbf{合計} & \textbf{1,848} & 約140秒 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+データセットは4クラスでほぼ均等に分布している（各25\%）。
+全特徴ベクトルにz-score正規化（$\epsilon=10^{-6}$）を適用した。
+
+\subsubsection{訓練パラメータ}
+
+オフライン事前学習には以下のハイパーパラメータを使用した：
+
+\begin{itemize}
+    \item エポック数：300
+    \item バッチサイズ：32
+    \item 学習率：0.05
+    \item L2正則化：$1 \times 10^{-4}$
+    \item 最適化：SGD
+    \item 損失関数：カテゴリカル交差エントロピー
+\end{itemize}
+
+訓練完了後のモデルをデバイスに展開した。
+デモデータに対する初期精度は約70\%であったが、
+本研究の目的は事前学習モデルの高精度化ではなく、
+デバイス上での継続学習により個人適応を実現することにある。
+
+\subsection{実験手順}
+
+\subsubsection{実験の全体構成}
+
+EMGセンサーの装着位置や電極の接触状態により信号特性が変化することを考慮し、
+\textbf{10回の異なる装着条件}で実験を実施した。
+各装着条件において、以下の一連の手順を完全に実行する：
+
 \begin{equation}
-E = mc^2
+\text{装着条件}_i \; (i=1,2,\ldots,10): \; \text{学習前測定} \rightarrow \text{データ収集} \rightarrow \text{学習} \rightarrow \text{学習後測定}
 \end{equation}
+
+この設計により、装着条件が変わるたびにオンデバイス学習がどの程度性能を回復・向上させるかを
+統計的に評価できる。
+
+\subsubsection{各装着条件における測定手順}
+
+各装着条件において、以下の4ステップを順次実行する：
+
+\begin{enumerate}
+    \item \textbf{学習前測定（1回目）}：
+    
+    事前学習済みモデル（初期状態）を用いて、4種類のジェスチャ
+    （rock、paper、pinch、cizer）それぞれに対し、
+    3つの評価指標（Accuracy、Stability、Confidence）を測定する。
+    各ジェスチャを3秒間維持し、約50〜60個の予測ウィンドウから統計を算出する。
+    
+    \item \textbf{学習用データ収集}：
+    
+    アプリケーション上のデータセットレコーダー機能を用いて、
+    現在の装着条件における各ジェスチャのデータを収集する。
+    各ラベルにつき3秒間記録し、約50〜60個の特徴ベクトルを取得する。
+    4ラベル合計で約200〜240サンプル（実測では約230サンプル）が得られる。
+    
+    \item \textbf{オンデバイス学習}：
+    
+    収集したデータを用いてデバイス上で学習を実行する。
+    学習時のハイパーパラメータを表\ref{tab:ondevice_params}に示す。
+    学習により、モデルは現在の装着条件に適応する。
+    
+    \item \textbf{学習後測定（2回目）}：
+    
+    学習後のモデルを用いて、再度4種類のジェスチャに対し
+    3つの評価指標を測定する。測定条件（3秒間、同一ジェスチャ）は
+    学習前測定（1回目）と完全に同一とする。
+\end{enumerate}
+
+\begin{table}[htbp]
+  \centering
+  \caption{オンデバイス学習のハイパーパラメータ}
+  \label{tab:ondevice_params}
+  \begin{tabular}{lr}
+    \hline
+    パラメータ & 値 \\
+    \hline
+    エポック数 & 10 \\
+    バッチサイズ & 16 \\
+    学習率 & $1 \times 10^{-3}$ \\
+    最適化手法 & Adam \\
+    $\beta_1$ & 0.9 \\
+    $\beta_2$ & 0.999 \\
+    $\epsilon$ & $1 \times 10^{-8}$ \\
+    更新対象層 & 出力層のみ \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsubsection{装着条件間の独立性}
+
+各装着条件の実験は独立して実施される。
+すなわち、装着条件$i+1$の実験を開始する際には、
+事前学習済みモデルの初期状態にリセットされる。
+これにより、各装着条件における学習効果を公平に評価できる。
+
+最終的に、10回の装着条件から得られた
+学習前後の評価指標の変化を統計的に分析し、
+オンデバイス学習の有効性を検証する。
+
+\section{評価指標}
+
+本研究では、モデルの性能を多面的に評価するため、以下の3つの指標を用いる。
+
+\subsection{Accuracy（精度）}
+
+最も基本的な指標として、正解ラベルと予測ラベルが一致した割合を計算する。
+測定期間$T$における精度は以下のように定義される：
+
+\begin{equation}
+    \text{Accuracy} = \frac{1}{|T|} \sum_{t \in T} \mathbb{1}[\hat{y}_t = y_{\text{true}}] \times 100
+\end{equation}
+
+ここで、$\hat{y}_t$は時刻$t$における予測ラベル、$y_{\text{true}}$は真のラベル、
+$\mathbb{1}[\cdot]$は指示関数（条件が真なら1、偽なら0）である。
+
+\subsection{Stability Mode（安定性）}
+
+予測の安定性を評価するため、測定期間中に最も頻繁に出現したラベル（最頻値）の出現割合を計算する。
+安定性が高いほど、モデルの予測が一貫していることを示す：
+
+\begin{equation}
+    \text{Stability} = \frac{1}{|T|} \sum_{t \in T} \mathbb{1}[\hat{y}_t = m] \times 100
+\end{equation}
+
+ここで、$m = \arg\max_c \sum_{t \in T} \mathbb{1}[\hat{y}_t = c]$は最頻値（モード）である。
+
+例えば、10回の予測のうち8回が"rock"、2回が"paper"であった場合、
+Stability = 80\%となる。この指標により、モデルが安定して同じクラスを予測しているかを評価できる。
+
+\subsection{Confidence Stability（信頼度安定性）}
+
+各予測時の最大確率（信頼度）の平均を計算する。
+この指標により、モデルがどの程度確信を持って予測しているかを評価できる：
+
+\begin{equation}
+    \text{Confidence} = \frac{1}{|T|} \sum_{t \in T} \max_c p_{t,c} \times 100
+\end{equation}
+
+ここで、$p_{t,c}$は時刻$t$におけるクラス$c$の予測確率である。
+
+高いConfidence値は、モデルが明確な判断をしていることを示し、
+低い値は予測が曖昧であることを示す。
+
+\subsection{測定方法}
+
+実験では、各ジェスチャを3秒間維持し、その間の予測結果から上記3指標を計算する。
+ウィンドウ処理の設定（ホップ長50ms）により、理論上は1秒あたり20個のウィンドウが生成され、
+3秒間で約60個の予測結果が得られる。
+ただし、Bluetooth通信の遅延や処理時間を考慮すると、
+実効的には3秒間で40〜50個程度の予測ウィンドウが生成される。
+
+アプリケーション上では、ユーザーがジェスチャのボタンを押すと測定が開始され、
+3秒経過後に自動的に3つの指標が計算・表示される。
+これらの指標を組み合わせることで、単なる精度だけでなく、
+予測の安定性と信頼性を含めた総合的な評価が可能となる。
+
+\section{リアルタイム性能評価}
+推論レイテンシ、メモリ使用量、消費電力などリアルタイム性能を測定する手順を述べる。
+
+\section{実験結果}
+
+\subsection{10条件における評価指標の平均値}
+
+表\ref{tab:results_before}および表\ref{tab:results_after}に、
+10回の装着条件における各評価指標の平均値を示す。
+
+\begin{table}[htbp]
+  \centering
+  \caption{学習前の評価指標（10条件平均）}
+  \label{tab:results_before}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & Accuracy [\%] & Stability [\%] & Confidence [\%] \\
+    \hline
+    paper & 100 & 100 & 99.8 \\
+    cizer & 68.3 & 68.3 & 83.3 \\
+    rock  & 97.2 & 97.2 & 90.4 \\
+    pinch & 45.8 & 46.9 & 66.1 \\
+    \hline
+    \textbf{平均} & \textbf{77.8} & \textbf{78.1} & \textbf{84.9} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \caption{学習後の評価指標（10条件平均）}
+  \label{tab:results_after}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & Accuracy [\%] & Stability [\%] & Confidence [\%] \\
+    \hline
+    paper & 96.0 & 96.0 & 94.6 \\
+    cizer & 76.3 & 76.3 & 75.6 \\
+    rock  & 97.8 & 97.8 & 95.4 \\
+    pinch & 70.6 & 70.6 & 72.1 \\
+    \hline
+    \textbf{平均} & \textbf{85.2} & \textbf{85.2} & \textbf{84.4} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+表\ref{tab:results_before}は事前学習済みモデルをそのまま使用した場合の性能を示し、
+表\ref{tab:results_after}はオンデバイス学習により
+各装着条件に適応した後の性能を示している。
+
+\subsection{学習前後の改善量}
+
+表\ref{tab:improvement}に、オンデバイス学習による各指標の改善量を示す。
+
+\begin{table}[htbp]
+  \centering
+  \caption{オンデバイス学習による改善量（10条件平均）}
+  \label{tab:improvement}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & $\Delta$Accuracy [\%pt] & $\Delta$Stability [\%pt] & $\Delta$Confidence [\%pt] \\
+    \hline
+    paper & $-4.0$ & $-4.0$ & $-5.2$ \\
+    cizer & $+8.0$ & $+8.0$ & $-7.7$ \\
+    rock  & $+0.6$ & $+0.6$ & $+5.0$ \\
+    pinch & $+24.8$ & $+23.7$ & $+6.0$ \\
+    \hline
+    \textbf{平均} & \textbf{$+7.3$} & \textbf{$+7.1$} & \textbf{$-0.5$} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+改善量は学習後の値から学習前の値を減算したもの（$\Delta = \text{学習後} - \text{学習前}$）である。
+正の値は性能向上を、負の値は性能低下を示す。
