@@ -3,16 +3,20 @@
 \section{実験条件}
 
 \subsection{事前学習モデル}
-オンデバイス学習の初期値として用いる事前学習モデルを作成した.
+オンデバイス学習の初期値として用いる事前学習モデルを作成した。
 
 \subsubsection{データ収集}
-アプリケーションのレコーダー機能を用い,4種類のジェスチャ（rock, paper, pinch, cizer）を
-各約35秒記録した.sEMG信号は150サンプル窓（150ms @ 1000Hz）,ホップ50サンプル（重複率66.7\%）で処理し,
-10次元特徴ベクトルを生成した.
+アプリケーションのレコーダー機能を用い，
+4種類のジェスチャ（rock, paper, pinch, cizer）を各約35秒ずつ記録した。
+sEMG信号は150サンプルの時間窓（150ms @ 1000Hz），
+ホップ長50サンプル（重複率66.7\%）で処理し，
+各窓から10次元の特徴ベクトルを抽出した。
 
 \subsubsection{データセット構成}
-表\ref{tab:pretrain_dataset}に訓練データセットの構成を示す.
-データは4クラスでほぼ均等に分布し,全特徴ベクトルにz-score正規化（$\epsilon=10^{-6}$）を適用した.
+表\ref{tab:pretrain_dataset}に事前学習用データセットの構成を示す。
+全クラスのサンプル数はほぼ均等であり，
+抽出した全特徴ベクトルに対して
+z-score正規化（$\epsilon=10^{-6}$）を適用した。
 
 \begin{table}[htbp]
   \centering
@@ -33,60 +37,70 @@
 \end{table}
 
 \subsubsection{訓練設定}
-事前学習はオフライン環境で実施し,ハイパーパラメータは以下とした：
-\begin{itemize}
-  \item エポック数：300
-  \item バッチサイズ：32
-  \item 学習率：0.05
-  \item L2正則化：$1 \times 10^{-4}$
-  \item 最適化：SGD
-  \item 損失関数：カテゴリカル交差エントロピー
-\end{itemize}
-訓練後のモデルを端末に展開した.なお,本研究の主目的は事前学習モデルの高精度化ではなく,
-オンデバイス学習による個人適応効果の検証である.
+事前学習はオフライン環境で実施し，
+使用したハイパーパラメータを表\ref{tab:hyperparameters}に示す.
+
 
 \subsection{実験手順}
-センサの装着状態により信号特性が変化する点を考慮し,
-\textbf{10回の装着条件}で実験を行った.各条件$i (i=1,\dots,10)$では,
-以下を同一手順で実施した：
-\begin{equation}
-\text{測定（学習前）} \rightarrow \text{学習用データ収集} \rightarrow \text{オンデバイス学習} \rightarrow \text{測定（学習後）}
-\end{equation}
-各条件の開始時にはモデルを事前学習状態にリセットし,条件間の独立性を確保した.
+センサの装着状態により信号特性が変化する点を考慮し，
+\textbf{10通りの装着条件}で実験を実施した。
+各条件$i\ (i=1,\dots,10)$において，
+以下の手順を同一条件で実行した。
 
-\subsubsection{各装着条件での手順}
+\begin{equation}
+\text{学習前測定}
+\;\rightarrow\;
+\text{学習用データ収集}
+\;\rightarrow\;
+\text{オンデバイス学習}
+\;\rightarrow\;
+\text{学習後測定}
+\end{equation}
+
+各装着条件の開始時には，
+モデルを事前学習状態にリセットし，
+条件間の独立性を確保した。
+
+\subsubsection{各装着条件における手順}
 \begin{enumerate}
   \item \textbf{学習前測定}：
-  4ジェスチャそれぞれを3秒間維持し,評価指標（Accuracy, Stability, Confidence）を算出する.
+  各ジェスチャを3秒間維持し，
+  Accuracy，Stability，Confidenceの3指標を測定する。
+  
   \item \textbf{学習用データ収集}：
-  各ジェスチャを3秒間記録し,特徴ベクトルを取得する（4ラベル合計で約200--240サンプル）.
+  各ジェスチャを3秒間記録し，
+  特徴ベクトルを取得する（4ラベル合計で約200--240サンプル）。
+  
   \item \textbf{オンデバイス学習}：
-  収集データを用いて端末上で学習を実行する（表\ref{tab:ondevice_params}）.
+  収集したデータを用いて，
+  端末上で学習を実行する（表\ref{tab:hyperparameters}）。
+  
   \item \textbf{学習後測定}：
-  学習前測定と同一条件で再度測定し,指標を算出する.
+  学習前測定と同一条件で再度測定を行い，
+  各評価指標を算出する。
 \end{enumerate}
 
 \begin{table}[htbp]
   \centering
-  \caption{オンデバイス学習のハイパーパラメータ}
-  \label{tab:ondevice_params}
-  \begin{tabular}{lr}
+  \caption{学習時のハイパーパラメータ}
+  \label{tab:hyperparameters}
+  \begin{tabular}{lcc}
     \hline
-    パラメータ & 値 \\
+    パラメータ & 事前学習 & オンデバイス学習 \\
     \hline
-    エポック数 & 10 \\
-    バッチサイズ & 16 \\
-    学習率 & $1 \times 10^{-3}$ \\
-    最適化手法 & Adam \\
-    更新対象層 & 出力層のみ \\
+    エポック数 & 300 & 10 \\
+    バッチサイズ & 32 & 16 \\
+    学習率 & 0.05 & $1 \times 10^{-3}$ \\
+    最適化手法 & SGD & Adam \\
+    L2正則化 & $1 \times 10^{-4}$ & --- \\
+    更新対象層 & 全層 & 出力層のみ \\
+    損失関数 & \multicolumn{2}{c}{カテゴリカル交差エントロピー} \\
     \hline
   \end{tabular}
 \end{table}
 
 \section{評価指標}
-本研究では,予測性能をAccuracy,予測の一貫性をStability,
-予測確信度をConfidenceとして評価する.
-いずれも各ジェスチャを3秒間維持した区間$T$の予測結果から算出した.
+本研究では,Accuracy,Stability,Confidence,いずれも各classを3秒間維持した区間$T$から算出した.
 
 \subsection{Accuracy}
 \begin{equation}
@@ -105,10 +119,13 @@ m=\arg\max_c\sum_{t\in T}\mathbb{1}[\hat{y}_t=c].
 \begin{equation}
 \mathrm{Confidence}=\frac{1}{|T|}\sum_{t\in T}\max_c p_{t,c}\times 100
 \end{equation}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.5\textwidth]{src/sokutei.jpg}
+  \caption{実験の様子（センサ装着とリアルタイム推論測定）}
+  \label{fig:experiment_setup}
+\end{figure}
 
-\subsection{測定数}
-ホップ長50msより,理論上は3秒間で約60回の推論が得られる.
-実運用では通信遅延等により40--50回程度となる場合がある.
 
 \pagebreak
 \section{実験結果}
