@@ -34,4 +34,4 @@ cd ../..
 
 # Run Flutter for iOS Device
 echo "Running Flutter on iOS Device..."
-fvm flutter run
+fvm flutter run --profile
