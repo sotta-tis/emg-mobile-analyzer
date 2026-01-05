@@ -39,10 +39,14 @@ class _EmgRealtimeInferencePanelState
 
   // 精度測定用
   final Map<String, double> _accuracies = {};
+  final Map<String, double> _stabilities = {}; // Stability mode
+  final Map<String, double> _confidences = {}; // Confidence stability
   bool _measuring = false;
   String? _measuringLabel;
   int _correctCount = 0;
   int _totalCount = 0;
+  final List<String> _predictedLabels = []; // 測定中の予測ラベル履歴
+  final List<double> _maxConfidences = []; // 測定中の最大確率履歴
   static const measureDuration = Duration(seconds: 3);
 
   @override
@@ -77,7 +81,7 @@ class _EmgRealtimeInferencePanelState
           _latest = pred;
           _status = 'ok';
 
-          // 精度測定中の場合、一致判定
+          // 精度測定中の場合、一致判定と統計収集
           if (_measuring && _measuringLabel != null) {
             _totalCount++;
             final predictedLabel =
@@ -86,6 +90,17 @@ class _EmgRealtimeInferencePanelState
                     : null;
             if (predictedLabel == _measuringLabel) {
               _correctCount++;
+            }
+
+            // 予測ラベル履歴を保存
+            if (predictedLabel != null) {
+              _predictedLabels.add(predictedLabel);
+            }
+
+            // 最大確率を保存
+            if (pred.scores.isNotEmpty) {
+              final maxConf = pred.scores.reduce((a, b) => a > b ? a : b);
+              _maxConfidences.add(maxConf);
             }
           }
         });
@@ -109,6 +124,37 @@ class _EmgRealtimeInferencePanelState
     super.dispose();
   }
 
+  Widget _buildMetricRow(String name, double value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, top: 2, bottom: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(name, style: const TextStyle(fontSize: 12)),
+          ),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: value / 100,
+              minHeight: 6,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 48,
+            child: Text(
+              '${value.toStringAsFixed(1)}%',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _measureAccuracy(String label) async {
     if (_measuring) return;
 
@@ -117,6 +163,8 @@ class _EmgRealtimeInferencePanelState
       _measuringLabel = label;
       _correctCount = 0;
       _totalCount = 0;
+      _predictedLabels.clear();
+      _maxConfidences.clear();
       _status = 'Measuring "$label"...';
     });
 
@@ -127,11 +175,31 @@ class _EmgRealtimeInferencePanelState
     final accuracy =
         _totalCount > 0 ? (_correctCount / _totalCount) * 100 : 0.0;
 
+    // Stability mode: 最頻値（モード）の出現割合
+    double stability = 0.0;
+    if (_predictedLabels.isNotEmpty) {
+      final labelCounts = <String, int>{};
+      for (final lbl in _predictedLabels) {
+        labelCounts[lbl] = (labelCounts[lbl] ?? 0) + 1;
+      }
+      final maxCount = labelCounts.values.reduce((a, b) => a > b ? a : b);
+      stability = (maxCount / _predictedLabels.length) * 100;
+    }
+
+    // Confidence stability: 最大確率の平均
+    double confidence = 0.0;
+    if (_maxConfidences.isNotEmpty) {
+      final sum = _maxConfidences.reduce((a, b) => a + b);
+      confidence = (sum / _maxConfidences.length) * 100;
+    }
+
     setState(() {
       _measuring = false;
       _accuracies[label] = accuracy;
+      _stabilities[label] = stability;
+      _confidences[label] = confidence;
       _status =
-          'Measured "$label": ${accuracy.toStringAsFixed(1)}% ($_correctCount/$_totalCount)';
+          'Measured "$label": Acc=${accuracy.toStringAsFixed(1)}% Stab=${stability.toStringAsFixed(1)}% Conf=${confidence.toStringAsFixed(1)}%';
       _measuringLabel = null;
     });
   }
@@ -237,33 +305,28 @@ class _EmgRealtimeInferencePanelState
 
             ...widget.labels.map((label) {
               final accuracy = _accuracies[label] ?? 0.0;
+              final stability = _stabilities[label] ?? 0.0;
+              final confidence = _confidences[label] ?? 0.0;
+
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(width: 70, child: Text(label)),
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        value: accuracy / 100,
-                        minHeight: 8,
-                        backgroundColor: Colors.grey[300],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          accuracy >= 80
-                              ? Colors.green
-                              : accuracy >= 60
-                              ? Colors.orange
-                              : Colors.red,
-                        ),
-                      ),
+                    Text(
+                      label.toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 56,
-                      child: Text(
-                        '${accuracy.toStringAsFixed(1)}%',
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
+                    const SizedBox(height: 4),
+
+                    // Accuracy
+                    _buildMetricRow('Accuracy', accuracy, Colors.blue),
+
+                    // Stability mode
+                    _buildMetricRow('Stability', stability, Colors.green),
+
+                    // Confidence
+                    _buildMetricRow('Confidence', confidence, Colors.orange),
                   ],
                 ),
               );
