@@ -14,7 +14,9 @@ class TemplateShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int index = 0;
-    if (currentPath.startsWith('/search')) index = 1;
+    if (currentPath.startsWith('/')) index = 0;
+    if (currentPath.startsWith('/emg')) index = 1;
+    if (currentPath.startsWith('/dev')) index = 2;
 
     return Scaffold(
       body: child,
@@ -28,11 +30,15 @@ class TemplateShell extends StatelessWidget {
             case 1:
               context.go('/emg');
               break;
+            case 2:
+              context.go('/dev');
+              break;
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '/'),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'EMG'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Dev'),
         ],
       ),
     );
