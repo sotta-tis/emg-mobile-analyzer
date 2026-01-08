@@ -73,7 +73,7 @@ class _EmgScreenState extends ConsumerState<EmgScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('BLE Manager + Waveform')),
+      appBar: AppBar(title: const Text('sEMG Analyzer')),
       body: CustomScrollView(
         slivers: [
           const SliverToBoxAdapter(child: BleManagerPanel()),

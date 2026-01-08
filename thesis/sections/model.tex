@@ -1,0 +1,98 @@
+\chapter{モデル設計および学習手法}
+
+\section{特徴量設計}
+本研究では,表面筋電位信号を150サンプル（1kHzで150ms）の時間窓に分割し,
+計算量と識別性能のバランスを考慮した10次元の特徴ベクトルを抽出する.
+特徴量の内訳は,時間領域4次元,周波数領域2次元,自己回帰モデル係数4次元である.
+
+\subsection{時間領域特徴量}
+時間領域特徴量として,平均絶対値（MAV）,分散,平均波形長（AW）,
+Hjorth Complexityを用いる.代表例としてMAVは次式で定義される：
+\begin{equation}
+\mathrm{MAV} = \frac{1}{N}\sum_{i=1}^{N}|x_i|
+\end{equation}
+Hjorth Complexityは信号の複雑さを表す指標であり,
+本研究では標準的な定義に基づいて算出した（詳細は付録Aに示す）.
+
+\subsection{周波数領域特徴量}
+FFTにより周波数スペクトルを算出し,
+スペクトル重心周波数（CPS）および低周波帯エネルギー比（LFO）を抽出する.
+入力信号にはHann窓を適用した.
+
+\subsection{自己回帰モデル係数}
+信号の時系列構造を捉えるため,4次自己回帰（AR(4)）モデルを仮定し,
+Yule-Walker法により係数$a_1$～$a_4$を推定する.
+導出および行列表現の詳細は付録Aに示す.
+
+\subsection{特徴量の正規化}
+抽出した特徴ベクトルは,訓練データから算出した平均と標準偏差を用いて
+z-score正規化を行う：
+\begin{equation}
+\tilde{f}_i = \frac{f_i - \mu_i}{\sigma_i + \epsilon}, \quad \epsilon = 10^{-6}.
+\end{equation}
+
+\section{ニューラルネットワーク構成}
+
+\subsection{アーキテクチャ設計}
+
+本研究では,軽量かつ高速な推論を実現するため,2層の全結合ニューラルネットワーク（Multi-Layer Perceptron, MLP）を採用した.
+ネットワーク構成を図\ref{fig:network_architecture}に示す.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.5\textwidth]{src/model_architecture.png}
+  \caption{ニューラルネットワークアーキテクチャ（Core MLモデル）}
+  \label{fig:network_architecture}
+\end{figure}
+
+\subsection{全結合層採用の理由}
+
+本研究では,入力が設計特徴量で構成されていることから,
+畳み込み層ではなく全結合層を採用した.
+主な理由を以下に示す：
+
+\begin{itemize}
+    \item 入力特徴量にはAR係数を含む大域的な時系列情報が含まれ,局所受容野を前提とする畳み込み層の利点を活かしにくい.
+    \item 時間領域,周波数領域,自己回帰係数といった性質の異なる特徴量が混在しており,次元間に空間的近接性が存在しない.
+    \item 入力次元が10と小さく,全結合層でも低い計算コストでリアルタイム推論を実現できる.
+\end{itemize}
+
+\subsection{パラメータ数と計算量}
+
+
+各層のパラメータ数を表\ref{tab:parameters}に示す.
+本モデルの総パラメータ数は364,順伝播に要する計算量は約672 FLOPsであり,
+モバイルデバイス上でのリアルタイム推論に十分な軽量性を持つ.
+\begin{table}[htbp]
+  \centering
+  \caption{各層のパラメータ数}
+  \label{tab:parameters}
+  \begin{tabular}{lrrr}
+    \hline
+    層名 & 重み & バイアス & 合計 \\
+    \hline
+    隠れ層 ($W_1, \mathbf{b}_1$) & $24 \times 10 = 240$ & $24$ & $264$ \\
+    出力層 ($W_2, \mathbf{b}_2$) & $4 \times 24 = 96$ & $4$ & $100$ \\
+    \hline
+    \textbf{総計} & & & \textbf{364} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsection{on-device学習機能（Updatable Model）}
+
+本モデルはCore MLのUpdatable Model機能を用いて実装し,
+デバイス上での継続学習を可能とした.
+出力層（$W_2, \mathbf{b}_2$）のみを更新対象とし,
+隠れ層（$W_1, \mathbf{b}_1$）は固定した.
+
+この構成により,事前学習で獲得した特徴表現を保持したまま,
+ユーザー固有データに基づく分類境界の調整を行える.
+また,更新対象パラメータ数は100個（総パラメータの27.5\%）に限定され,
+モバイル端末上での学習においても計算コストを抑制できる.
+
+学習時の損失関数にはカテゴリカル交差エントロピーを用いる：
+\begin{equation}
+\mathcal{L} = -\sum_{i=1}^{4} y_i \log(p_i)
+\end{equation}
+ここで$y_i$は正解ラベルのone-hot表現,$p_i$はモデルが出力するクラス確率である.
