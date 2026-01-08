@@ -61,7 +61,31 @@ MicroPythonベースのBLE Peripheral実装により,以下の機能を実装す
 % ソフトウェア構成
 % =====================
 \section{ソフトウェア構成}
-メインアプリケーションはクリーンアーキテクチャを採用し,各処理をServiceとして定義してRiverpodで状態管理する（図\ref{fig:flutter-arch}）.
+
+\subsection{技術選定}
+メインアプリケーションはGoogle社が開発したUIフレームワークであるFlutterを採用し,クリーンアーキテクチャに基づいて各処理をServiceとして定義し,Riverpodで状態管理する（図\ref{fig:flutter-arch}）.
+Flutterは単一コードベースでiOS/Androidアプリを同時開発できるため,本研究では現時点でiOS向けの実装を行ったが,後述するService単位でのロジック分離により,Android対応への拡張が容易な設計となっている.
+BLE通信,データバッファリング,特徴抽出などはプラットフォーム非依存のDartコードとC++コンパイルバイナリのFII呼び出しで実装し,機械学習推論部分のみをMethod Channel経由でNative層に委譲している.
+Android対応時にはTensorFlow Lite実装をKotlinで追加することで,Flutter層を変更せずにAndroid版を構築できる.
+本システムで使用する主要技術およびライブラリを表\ref{tab:software}に示す.
+
+\begin{table}[htbp]
+\centering
+\caption{ソフトウェア構成一覧}
+\label{tab:software}
+\begin{tabular}{lll}
+\hline
+\textbf{カテゴリ} & \textbf{技術/ライブラリ} & \textbf{用途} \\ \hline
+フレームワーク & Flutter 3.x & クロスプラットフォームUI \\
+言語（Flutter層） & Dart & アプリケーションロジック \\
+言語（Native層） & Swift & iOS Native機能実装 \\
+言語（演算処理） & C++ & 特徴抽出の高速演算 \\
+状態管理 & Riverpod & 依存性注入・状態管理 \\
+BLE通信 & flutter\_blue\_plus & BLE Central機能 \\
+機械学習 & Core ML & 推論・on-device学習 \\
+\hline
+\end{tabular}
+\end{table}
 
 \begin{figure}[htbp]
     \centering
@@ -114,7 +138,7 @@ MicroPythonベースのBLE Peripheral実装により,以下の機能を実装す
 \subsubsection{BleService（BLE通信）}
 \label{subsubsec:ble-service}
 \textbf{責務}：
-Raspberry Pi Pico 2 WとのBLE通信を管理し,sEMGデータをアプリケーション内部に供給する.
+Raspberry Pi Pico 2 WとのBLE通信の管理,sEMGデータの受信,データ配信.
 
 \textbf{入出力}：
 入力：BLE Notifyによる42バイトパケット  
@@ -146,16 +170,12 @@ Streamとして配信する（図\ref{fig:ble-flow}）.
       \draw[arrow] (notify) -- (parse);
       \draw[arrow] (parse) -- (stream);
   
-      % パケット構造（下部）
-      \node[below=12mm of notify, align=center, font=\footnotesize] (packet) {
-        \textbf{パケット}\\
-        {[}seq:2B{]} + {[}10samples:40B{]}
-      };
-  
     \end{tikzpicture}
     \caption{BLE通信フローとパケット構造}
     \label{fig:ble-flow}
 \end{figure}
+
+\pagebreak
 
 \subsubsection{EmgWindowBuffer（データバッファリング）}
 \label{subsubsec:window-buffer}
@@ -239,6 +259,7 @@ Streamとして配信する（図\ref{fig:ble-flow}）.
 \end{tabular}
 \end{table}
 
+\pagebreak
 \subsubsection{EmgMlService（推論・学習）}
 \label{subsubsec:ml-service}
 \textbf{責務}：
