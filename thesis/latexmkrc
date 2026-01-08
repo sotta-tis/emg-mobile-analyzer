@@ -1,0 +1,3 @@
+$latex   = 'uplatex -interaction=nonstopmode -synctex=1 %O %S';
+$dvipdf  = 'dvipdfmx %O -o %D %S';
+$pdf_mode = 3;  # Generate PDF via DVI -> dvipdfmx so JPEG/PNG are handled.

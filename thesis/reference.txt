@@ -1,0 +1,226 @@
+Abstract:
+The implementation of embedded systems for myoelectric signal classification is key to the development of prosthetic and other real-time assistive technologies. This work presents a hand gesture classification system based on an artificial neural network (ANN) deployed on an ESP32 microcontroller. In contrast to approaches that require multiple acquisition channels or complex configurations, the proposed system uses a single surface electromyography (sEMG) channel, reducing cost and complexity. Data were collected from eight participants performing eight hand and wrist gestures. The system achieved classification accuracies of up to 93.05% for six gestures, including rest. Furthermore, the ESP32 implementation demonstrated inference times compatible with real-time operation, achieving an average inference time of 0.17 ms. When using a majority voting strategy, classification accuracy increased to 99%, confirming the feasibility of implementing efficient and accurate gesture recognition on low-cost embedded hardware. These results support its integration into portable and autonomous systems for prosthetic control and other interactive applications.
+
+General architecture of the proposed embedded system for hand gesture recognition using a single sEMG channel. The acquired signals are processed on the ESP32 to extract time-domain features and classify gestures in real time using an ANN trained in Python, with weights and biases transferred for local inference.
+General architecture of the proposed embedded system for hand gesture recognition using a single sEMG channel. The acquired signals are processed on the ESP32 to extract ...Show More
+Published in: IEEE Access ( Volume: 13)
+Page(s): 142457 - 142466
+Date of Publication: 13 August 2025 
+Electronic ISSN: 2169-3536
+DOI: 10.1109/ACCESS.2025.3598649
+Publisher: IEEE
+CCBY - IEEE is not the copyright holder of this material. Please follow the instructions via https://creativecommons.org/licenses/by/4.0/ to obtain full-text articles and stipulations in the API documentation.
+SECTION I.Introduction
+Electromyographic signals (EMG) are biological signals that measure the electric potential differences generated in muscles during contraction [1]. Due to their stochastic, nonlinear, and non-stationary nature [2], their interpretation and classification pose significant challenges in various medical and healthcare applications, such as patient rehabilitation monitoring [3], medical signal analysis [4], muscle fatigue assessment [5], and control of myoelectric prostheses [6], [7], [8]. In the latter case, the complexity of signal processing and the requirement for real-time response require the use of advanced algorithms and efficient hardware, particularly embedded systems.
+
+Among the various strategies for prosthetic control, surface electromyography (sEMG)-based gesture recognition is widely used due to its ability to noninvasively capture muscle activity. The general workflow typically involves signal acquisition, segmentation, feature extraction, and classification [9]. However, the inherent variability of EMG signals, along with multiple factors influencing classification performance, such as the number of acquisition channels, the extracted features, the number of gestures, and the classification algorithm, presents significant challenges for real-time implementation on resource-constrained embedded systems.
+
+Although several machine learning approaches have been proposed for EMG signal classification, many rely on complex models and multi-channel acquisition systems that increase hardware requirements and power consumption. This limits their practical deployment in low-cost, portable, or wearable applications. Furthermore, the majority of systems reported in the literature use a hybrid architecture in which the sEMG signals are acquired and processed on a personal computer, and only the resulting command is sent to a microcontroller for execution [10]. Few studies report direct implementation of the classification model within the microcontroller itself.
+
+This gap in the literature represents an opportunity for lightweight, real-time, and subject-specific classification models implemented directly on embedded platforms.
+
+Reducing the number of acquisition channels while preserving accuracy is also critical to improve usability, reduce complexity, and enable integration into compact systems.
+
+To contextualize the current state of embedded sEMG classification systems, Table 1 provides a summary of selected studies, showing the number of channels used, the number of classified movements, the maximum accuracy achieved, the classification algorithm applied, and the embedded platform where the classifier was programmed.
+
+TABLE 1. Summary of Studies That Implemented Hand Gesture Classification Models on Embedded Systems
+Table 1.- Summary of Studies That Implemented Hand Gesture Classification Models on Embedded Systems
+
+Since most reported studies implement the classification model on a PC and then send commands to an embedded system, there is still a challenge in developing efficient solutions capable of performing classification directly on embedded hardware. This is especially important in applications such as prosthetic control and interactive devices. Moreover, reducing the number of acquisition channels is a key factor in decreasing system complexity without significantly compromising model accuracy.
+
+Motivated by these limitations, the present work proposes the implementation of an artificial neural network (ANN) on an ESP32 board for hand gesture classification using a single sEMG acquisition channel. Despite the simplicity of the system, the model achieved up to 93.05% accuracy in Python for the classification of six hand gestures, including the rest position. Furthermore, once implemented on the ESP32, the system reached an accuracy of up to 99% using a majority voting strategy. These results demonstrate the feasibility of low-cost embedded systems capable of delivering high performance in specific applications.
+
+SECTION II.Materials and Methods
+This section details the complete process, from signal acquisition to the selection of the most suitable ANN model for implementation on an ESP32 board.
+
+A. Semg Sensor Design and Placement
+According to [19], myoelectric signals typically exhibit amplitudes in the range of ±5 mV and frequencies between 6 Hz and 500 Hz, with the highest spectral power density concentrated between 20 and 150 Hz. For this project, a bipolar-configured myoelectric acquisition channel was designed, incorporating a fourth-order band-pass filter covering the 20–500 Hz range. The design included a preamplification stage based on an AD620 instrumentation amplifier configured with a gain of 10, preceding the filtering stage. After filtering, a second amplification stage was implemented using a non-inverting operational amplifier with a gain of 100, yielding a total gain of 1000.
+
+Because the EMG signal includes both positive and negative components, a level-shifting (offset) stage was added using an operational amplifier in a summing configuration, enabling the signal to remain within the 0–3.3 V range for proper acquisition by the ESP32. To protect the ESP32’s analog-to-digital converter (ADC) from possible overvoltage, a 3.3 V Zener diode was connected in parallel with the signal input. Figure 1 presents the electronic diagram and the fabrication of the sEMG acquisition channel.
+
+FIGURE 1. - Electronic diagram of the sEMG acquisition channel.
+
+FIGURE 1.
+Electronic diagram of the sEMG acquisition channel.
+
+Show All
+
+The electrodes were placed over the Flexor Carpi Radialis (FCR) muscle on the anterior side of the forearm, following the SENIAM (Surface Electromyography for the Non-Invasive Assessment of Muscles) recommendations [20]. The FCR was chosen due to its large size, superficial location, and consistent activation during wrist flexion. These characteristics make it less sensitive to signal degradation caused by electrode displacement, thus enhancing signal stability in a single-channel setup. While we acknowledge that the FCR is primarily involved in wrist movements and not in isolated finger actions, we intentionally included some finger gestures in the classification task to evaluate the model’s ability to discriminate among a broader set of gestures. This approach aligns with our goal of maximizing classification performance using only one sEMG channel, despite the known limitations in capturing fine motor control with a single muscle. Ag/AgCl surface electrodes with a contact area of 10 mm2 were used. The electrodes were spaced 20 mm apart and aligned with the direction of the muscle fibers to optimize signal acquisition, as shown in Figure 2b. The signal was acquired using a custom six-channel EMG acquisition system, of which only one channel was used in this study (Figure 2a). Prior to placement, the area was shaved and cleaned with isopropyl alcohol to reduce impedance and improve signal quality.
+
+FIGURE 2. - a) 6-channel sEMG acquisition system, b) placement of a single channel on the forearm of a subject during gesture execution.
+
+FIGURE 2.
+a) 6-channel sEMG acquisition system, b) placement of a single channel on the forearm of a subject during gesture execution.
+
+Show All
+
+B. Semg Sensor Design and Placement
+In this study, eight hand and wrist movements were initially selected for classification (Figure 3). These include four wrist movements and four characteristic hand movements. The hand gestures consist of grasp, open hand, power grip, and precision grip, all of which are essential for activities of daily living [21].
+
+FIGURE 3. - a) Wrist flexion, b) wrist extension, c) ulnar deviation, d) radial deviation, e) full finger extension, f) full finger flexion, g) extension of thumb and index finger, h) flexion of thumb and index finger.
+
+FIGURE 3.
+a) Wrist flexion, b) wrist extension, c) ulnar deviation, d) radial deviation, e) full finger extension, f) full finger flexion, g) extension of thumb and index finger, h) flexion of thumb and index finger.
+
+Show All
+
+For the acquisition of signals used to train the ANN model, a standardized protocol was followed in which the subject was asked to perform each movement for a fixed duration [22], with rest periods included between repetitions to prevent muscle fatigue. Additionally, it is recommended that the movements be carried out in a predefined order, rather than a random sequence, to facilitate unconscious repetition by the subject [22]. In this study, the subject was asked to perform five repetitions of each movement, holding each position for five seconds and incorporating rest intervals of three seconds between repetitions. Figure 4 shows a portion of the sEMG signal acquired using this protocol, where changes in signal amplitude corresponding to each movement can be clearly observed.
+
+FIGURE 4. - Segment of the acquired sEMG signal.
+
+FIGURE 4.
+Segment of the acquired sEMG signal.
+
+Show All
+
+All participants provided informed consent prior to participation, and the procedure was conducted in accordance with the Declaration of Helsinki. According to institutional policy, formal ethical approval was not required for this type of non-invasive, minimal-risk study.
+
+C. Signal Segmentation and Feature Extraction
+As part of the typical process for myoelectric signal classification, data segmentation and feature extraction are essential steps. In this study, overlapped window segmentation was used [23], which consists of dividing the signal into fixed-size segments, where each window shares a portion of its data with the previous one. This overlap, referred to as the overlap time, increases the number of samples available for training the ANN. For this procedure, a window length of 150 ms with a 25 ms overlap was used, based on the good performance reported in previous studies [24].
+
+Given that the sEMG signal was sampled at 1000 Hz, each window corresponds to 150 samples, with a step size of 125 samples between consecutive windows. Considering the full acquisition protocol (eight gestures, each performed five times for five seconds, with three-second rest periods between repetitions) a total of 275 seconds of data were acquired. This results in 275,000 samples and a total of 2,559 overlapping windows.
+
+The number of windows N was computed as:
+N=[Ttotal∗fs−LL−O]+1(1)
+View SourceRight-click on figure for MathML and additional features.where Ttotal= 275 is the total duration of the signal in seconds, fs= 1000 Hz is the sampling rate, L=150 is the window length in samples, and O=25 is the overlap in samples. Two-thirds of these windows (1,706 samples) were used for training the ANN model, and the remaining third (853 samples) was reserved for testing.
+
+For feature extraction, time-domain features were selected because they do not require additional transformations and have a lower computational cost [25], which is crucial for embedded system implementation. Moreover, time-domain features have shown better performance in the classification of myoelectric signals compared to features extracted in the Fourier or Wavelet domain [26]. The feature set used in this work included the following [27]: Mean Absolute Value (MAV), Slope Sign Change (SSC), Waveform Length (WL), Variance (VAR), Willison Amplitude (WAMP), Zero Crossings (ZC), and four coefficients from the Autoregressive (AR) model. These features, both individually and in combination, have demonstrated good performance for myoelectric signal classification when compared with other methods [24], [27], [28], [29], [30].
+
+D. Neural Network Training
+1) Network Architecture
+In this study, a single-hidden-layer ANN was used. Its configuration was determined through an initial test to select the optimal number of neurons. The final architecture was defined as follows:
+
+Input layer: 10 neurons, corresponding to the ten features extracted from each window.
+
+Hidden layer: 24 neurons with a ReLU (Rectified Linear Unit) activation function.
+
+Output layer: 9 neurons, one for each classified movement including rest, with a Softmax activation function.
+
+The structure of the network is shown in Figure 5.
+FIGURE 5. - ANN architecture.
+
+FIGURE 5.
+ANN architecture.
+
+Show All
+
+2) Training Process
+The preparation of the data obtained during segmentation and feature extraction was carried out following the methodology described in [31], [32], and [33]. Two-thirds of the generated windows were used for training, while the remaining third was used for model testing. Before splitting, all windows were randomly shuffled to avoid any temporal or sequential bias during training.
+
+The model was trained using Python 3.11.4 with TensorFlow 2.17.0 and the Adam optimization algorithm, with a learning rate of 0.001 and categorical cross-entropy as the loss function. Training was conducted over 200 epochs. After the initial training, an iterative process was implemented to improve the overall performance of the model. This process, illustrated in Figure 6, involved the following steps:
+
+Evaluate the individual performance of each movement using Equation 2, where TP represents true positives and FN represents false negatives.
+
+Check whether all movements exceed 85% accuracy.
+
+If all movements meet the threshold, the algorithm stops.
+
+If one or more movements do not reach the threshold, identify the one with the lowest performance.
+
+Remove the samples of the lowest-performing movement from the training set.
+
+Retrain the model using the reduced dataset.
+
+Repeat the process until all remaining movements exceed the specified accuracy threshold.
+Accuracy class i=TPiTPi+FNi(2)
+View SourceRight-click on figure for MathML and additional features.
+
+FIGURE 6. - Flowchart of the training process.
+
+FIGURE 6.
+Flowchart of the training process.
+
+Show All
+
+3) Model Implementation on the Esp32 Board
+Since the ESP32 does not include a dedicated neural processing unit, the neural network was manually implemented, avoiding the use of heavy frameworks such as TensorFlow Lite.
+
+The ESP32 board was selected for this application due to its favorable balance between processing capabilities, cost, and energy efficiency. It features a 32-bit dual-core Tensilica LX6 microprocessor with clock speeds up to 40 MHz, 248 KB of SRAM, and a 12-bit ADC. These specifications provide sufficient resources for real-time EMG signal acquisition, feature extraction, and neural network inference. Furthermore, its integrated Wi-Fi and Bluetooth modules offer potential for future wireless prosthetic control applications. Prior studies have highlighted the ESP32 board as a viable platform for embedded machine learning in biomedical contexts [34], [35].
+
+The implementation process included the following steps:
+
+Feature extraction implementation. The necessary functions were programmed to compute the time-domain features directly on the ESP32.
+
+Data normalization. The normalization parameters obtained during the training phase were used to normalize each input window in real time on the ESP32.
+
+Activation functions definition. The activation functions used in the trained ANN were implemented: ReLU (Rectified Linear Unit) for the hidden layer and Softmax for the output layer, normalizing the classification probabilities.
+
+Model inference calculation. A custom routine was programmed to take the extracted features, multiply them by the weights and biases previously obtained during training in Python, and apply the activation functions to the results.
+
+Movement prediction. A function was implemented to return the class with the highest probability after processing the data, thereby determining the detected gesture.
+
+To evaluate the effectiveness of the model implementation on the ESP32, three key aspects were analyzed. First, the number and identity of the hand movements that achieved an accuracy greater than 85% were determined. Next, the total prediction time on the ESP32 was measured, including the time required for feature extraction, neural network inference, and gesture classification. This ensured that the system could operate within response times below 300 ms, satisfying the constraints for real-time applications [23]. Finally, the model’s performance on the ESP32 was compared with the results obtained during training in Python, analyzing potential losses in accuracy due to code optimization and the computational limitations of the embedded system. This analysis validated the feasibility of implementing the model on the ESP32. The results obtained are presented in the following section.
+
+Figure 7 illustrates the system architecture proposed. It includes the acquisition of sEMG signals via electrodes placed on the forearm, followed by time-domain feature extraction and gesture classification using a feedforward artificial neural network implemented directly on the ESP32 microcontroller. The model, initially trained in Python, is deployed by transferring the learned weights and biases, enabling local inference in real time without external processing.
+
+FIGURE 7. - General architecture of the embedded hand gesture recognition system based on sEMG and ANN inference on ESP32.
+
+FIGURE 7.
+General architecture of the embedded hand gesture recognition system based on sEMG and ANN inference on ESP32.
+
+Show All
+
+SECTION III.Results
+A. Classification Accuracy in Python and Gesture Selection Per Subject
+To evaluate the initial performance of the ANN model, the acquisition protocol was applied to eight participants. Each subject performed eight different gestures, including the rest position, following the conditions described in the methodology section. Based on the acquired and segmented sEMG signals, the previously defined features were extracted, and an individual ANN model was trained for each participant.
+
+Once trained, the classification accuracy for each gesture was calculated using the corresponding test set for each subject. Table 2 presents the accuracy values obtained per gesture and per participant. Movements that exceeded the 85% threshold are highlighted in bold.
+
+TABLE 2. Gesture-Wise and Subject-Wise Classification Accuracy of the Model Trained in Python. The Final Row Shows the Average Accuracy Per Gesture Across all Subjects
+Table 2.- Gesture-Wise and Subject-Wise Classification Accuracy of the Model Trained in Python. The Final Row Shows the Average Accuracy Per Gesture Across all Subjects
+
+In addition to individual results, the table also includes the average classification accuracy for each gesture across all subjects, providing a broader view of gesture-wise performance. This helps identify which gestures are more consistently recognized by the model regardless of inter-subject variability.
+
+As can be observed, the number and type of selected gestures varied among participants. The minimum number of gestures selected was two, while some participants were able to correctly classify up to six gestures. Notably, wrist movements (movements from ‘a’ to ‘d’) and full finger extension and flexion (movements ‘e’ and ‘f’) consistently exhibited higher classification accuracies across subjects. This aligns with previous findings indicating that individual finger movements are more challenging to classify than whole-hand or wrist gestures due to the complexity and subtlety of muscle usage for individual finger movements [36]. Based on these results, a personalized gesture set was defined for each participant by selecting only those gestures that exceeded the previously established accuracy threshold. These selected gestures were the only ones considered for subsequent implementation and analysis on the ESP32.
+
+B. Evaluation on the Esp32 Board
+Once the best-performing gestures were selected for each participant, a personalized implementation of the ANN was carried out on the ESP32 platform. The real-time execution included feature extraction directly on the microcontroller, data normalization, and inference of the model previously trained in Python. To evaluate the performance of the implemented system, three main aspects were measured:
+
+Average accuracy per gesture on the ESP32, calculated over a set of 100 consecutive windows for each gesture.
+
+Majority voting accuracy, using a strategy in which five consecutive inferences are considered and the most frequent class is assigned as the final result. This technique helps reduce classification errors and illustrates how system stability can be improved without increasing computational complexity [37], [38].
+
+Inference time, calculated as the average over 100 consecutive windows, measuring the time from signal acquisition to final classification.
+
+Table 3 summarizes these results by subject.
+
+TABLE 3. Results by Participant: Average Accuracy in Python and on the ESP32 With and Without Majority Voting, and Average Inference Time
+Table 3.- Results by Participant: Average Accuracy in Python and on the ESP32 With and Without Majority Voting, and Average Inference Time
+
+In addition, Figure 8 presents the complete results for a single subject, comparing the accuracy obtained in Python and on the ESP32 for each gesture. It is important to note that, for the ESP32 evaluation, only the gestures that surpassed the 85% accuracy threshold during training in Python were considered. An improvement in accuracy was observed when running the model on the embedded system, which may be attributed to the fact that the evaluated movement was performed continuously rather than in repeated trials. This likely reduced the influence of transitional phases from rest to movement. Furthermore, accuracy increased even more when applying the majority voting strategy, enhancing the stability and reliability of gesture classification.
+
+FIGURE 8. - Accuracy comparison for each gesture (a–i) between the model trained in Python and the one implemented on the ESP32 for Subject 4.
+
+FIGURE 8.
+Accuracy comparison for each gesture (a–i) between the model trained in Python and the one implemented on the ESP32 for Subject 4.
+
+Show All
+
+These results confirm that the embedded implementation using a single acquisition channel is not only feasible but also robust, especially when consolidation techniques such as majority voting are integrated.
+
+SECTION IV.General Observations
+When analyzing the results per participant, a variability was observed in the number of gestures that surpassed the 85% accuracy threshold in Python. Overall, general hand gestures tended to show better performance on average. While a subject was able to correctly classify up to six gestures, others managed only two. This suggests a dependence on factors such as electrode placement, individual muscle activation, or physiological variability among subjects [39], [40].
+
+This also explains why certain gestures, such as gesture-g, may only be reliably classified by specific individuals, while others like gesture-a perform well across a wider range of subjects. The proposed subject-specific modeling approach accounts for this variability by discarding low-performing gestures and focusing on those that produce consistent activation patterns in each participant.
+
+In addition, it is worth noting that the highest classification accuracy achieved in this study was 97.5% for six gestures using only a single sEMG channel and a simple ANN implemented on an embedded device. This result is comparable or even superior to other recent single-channel EMG studies conducted on desktop or embedded platforms. For instance, [16] implemented a real-time ANN classifier using open-source hardware (Arduino UNO) and reported a classification accuracy of 98.4%, but for only four gestures and with an inference time of 8.522 ms. In contrast, our system achieved comparable accuracy for a greater number of gestures, with inference times as low as 0.18 ms, highlighting its efficiency and suitability for real-time applications. Similarly, [41] reported up to 98% accuracy using single-channel EMG decomposition and linear classifiers for diagnostic movements, though their implementation was conducted entirely on a desktop platform. These comparisons further emphasize the strength of our minimalist embedded approach in balancing classification performance, low latency, and hardware simplicity.
+
+Regarding performance on the ESP32, an improvement in accuracy was observed compared to the original Python model. This result may be associated with the continuous execution of each gesture during evaluation, which provides a more stable signal representation. The use of majority voting further enhanced classification performance, suggesting that increasing the number of inferences per decision could continue to improve system robustness.
+
+As for inference time, all participants remained below the 300 ms threshold, validating the feasibility of the system for real-time applications. Additionally, it was confirmed that the implemented models maintained their representativeness and performance, demonstrating that it is possible to personalize the model for each subject without compromising classification effectiveness.
+
+SECTION V.Conclusion
+This work confirmed the feasibility of implementing an ANN on an ESP32 microcontroller for classifying hand gestures based on sEMG signals acquired from a single channel. Despite the simplicity of the setup, the system achieved up to 93.05% accuracy during training in Python and up to 99% on the ESP32 by applying a majority voting strategy. Inference times remained consistently below 0.18 ms, validating its suitability for real-time, portable prosthetic control applications.
+
+Throughout the experiments, it was observed that wrist movements and fist-clenching gestures consistently yielded higher classification accuracies compared to individual finger movements. This behavior, which aligns with previous studies, suggests that general hand movements are easier to distinguish based on surface EMG signals, possibly due to greater muscle activation.
+
+The strategy of selecting only the gestures that exceeded the accuracy threshold for each participant proved effective in maintaining high system performance without overloading the computational resources of the ESP32. Even with the inherent hardware limitations, the embedded implementation preserved both the classification capabilities and the personalization of the model.
+
+Overall, the results demonstrate that it is possible to achieve robust, real-time gesture recognition on a low-cost, low-power embedded platform using a single sEMG channel.
+
+Future work will focus on testing the system under dynamic conditions, expanding the gesture set, and taking advantage of the ESP32’s wireless communication capabilities to move toward fully autonomous prosthetic devices. Additionally, we aim to evaluate the long-term stability of classification models, explore inter-subject model generalization, and assess the usability of the system in real-life assistive scenarios.
+
+Despite the promising results, some limitations must be acknowledged. The use of a single sEMG channel, while advantageous for reducing hardware complexity and energy consumption, limits the ability to distinguish between finer or overlapping gestures. Moreover, classification performance varies across individuals, requiring subject-specific calibration and limiting generalization. Finally, validation has so far been conducted under controlled conditions, and further testing in dynamic or real-world environments is necessary. These challenges will be addressed in future stages through multi-session training, adaptive learning strategies, and the integration of additional sensors or context-aware modules.
+
+ACKNOWLEDGMENT
+The some portions of the text were revised and edited with the assistance of an artificial intelligence language model (Grammarly). The authors are solely responsible for the final content and interpretations presented in this article.

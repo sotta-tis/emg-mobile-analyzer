@@ -1,0 +1,197 @@
+\chapter{実験および評価}
+
+\section{実験条件}
+
+\subsection{事前学習モデル}
+on-device学習の初期値として用いる事前学習モデルを作成した.
+
+\subsubsection{データ収集}
+アプリケーションのレコーダー機能を用い,
+4種類のジェスチャ（rock, paper, pinch, cizer）を各約35秒ずつ記録した.
+sEMG信号は150サンプルの時間窓（150ms @ 1000Hz）,
+ホップ長50サンプル（重複率66.7\%）で処理し,
+各窓から10次元の特徴ベクトルを抽出した.
+
+\subsubsection{データセット構成}
+表\ref{tab:pretrain_dataset}に事前学習用データセットの構成を示す.
+全クラスのサンプル数はほぼ均等であり,
+抽出した全特徴ベクトルに対して
+z-score正規化（$\epsilon=10^{-6}$）を適用した.
+
+\begin{table}[htbp]
+  \centering
+  \caption{事前学習用データセット}
+  \label{tab:pretrain_dataset}
+  \begin{tabular}{lrr}
+    \hline
+    クラス & サンプル数 & 記録時間 \\
+    \hline
+    rock  & 460 & 約35秒 \\
+    paper & 464 & 約35秒 \\
+    pinch & 462 & 約35秒 \\
+    cizer & 462 & 約35秒 \\
+    \hline
+    \textbf{合計} & \textbf{1,848} & 約140秒 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsubsection{訓練設定}
+事前学習はオフライン環境で実施し,
+使用したハイパーパラメータを表\ref{tab:hyperparameters}に示す.
+
+
+\subsection{実験手順}
+センサの装着状態により信号特性が変化する点を考慮し,
+\textbf{10通りの装着条件}で実験を実施した.
+各条件$i\ (i=1,\dots,10)$において,
+以下の手順を同一条件で実行した.
+
+\begin{equation}
+\text{学習前測定}
+\;\rightarrow\;
+\text{学習用データ収集}
+\;\rightarrow\;
+\text{on-device学習}
+\;\rightarrow\;
+\text{学習後測定}
+\end{equation}
+
+各装着条件の開始時には,
+モデルを事前学習状態にリセットし,
+条件間の独立性を確保した.
+
+\subsubsection{各装着条件における手順}
+\begin{enumerate}
+  \item \textbf{学習前測定}：
+  各ジェスチャを3秒間維持し,
+  Accuracy,Stability,Confidenceの3指標を測定する.
+  
+  \item \textbf{学習用データ収集}：
+  各ジェスチャを3秒間記録し,
+  特徴ベクトルを取得する（4ラベル合計で約200--240サンプル）.
+  
+  \item \textbf{on-device学習}：
+  収集したデータを用いて,
+  端末上で学習を実行する（表\ref{tab:hyperparameters}）.
+  
+  \item \textbf{学習後測定}：
+  学習前測定と同一条件で再度測定を行い,
+  各評価指標を算出する.
+\end{enumerate}
+
+\begin{table}[htbp]
+  \centering
+  \caption{学習時のハイパーパラメータ}
+  \label{tab:hyperparameters}
+  \begin{tabular}{lcc}
+    \hline
+    パラメータ & 事前学習 & on-device学習 \\
+    \hline
+    エポック数 & 300 & 10 \\
+    バッチサイズ & 32 & 16 \\
+    学習率 & 0.05 & $1 \times 10^{-3}$ \\
+    最適化手法 & SGD & Adam \\
+    L2正則化 & $1 \times 10^{-4}$ & --- \\
+    更新対象層 & 全層 & 出力層のみ \\
+    損失関数 & \multicolumn{2}{c}{カテゴリカル交差エントロピー} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{評価指標}
+評価指標として,Accuracy,Stability,Confidenceを用いる.
+いずれも各ジェスチャを3秒間維持した区間$T$から算出した.
+
+\subsection{Accuracy}
+\begin{equation}
+\mathrm{Accuracy}=\frac{1}{|T|}\sum_{t\in T}\mathbb{1}[\hat{y}_t=y_{\mathrm{true}}]\times 100
+\end{equation}
+
+\subsection{Stability}
+測定区間における予測ラベルの最頻値$m$の出現割合として定義する：
+\begin{equation}
+\mathrm{Stability}=\frac{1}{|T|}\sum_{t\in T}\mathbb{1}[\hat{y}_t=m]\times 100,
+\quad
+m=\arg\max_c\sum_{t\in T}\mathbb{1}[\hat{y}_t=c].
+\end{equation}
+
+\subsection{Confidence}
+\begin{equation}
+\mathrm{Confidence}=\frac{1}{|T|}\sum_{t\in T}\max_c p_{t,c}\times 100
+\end{equation}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.5\textwidth]{src/sokutei.jpg}
+  \caption{実験の様子（センサ装着とリアルタイム推論測定）}
+  \label{fig:experiment_setup}
+\end{figure}
+
+
+\pagebreak
+\section{実験結果}
+
+\subsection{10条件における平均値}
+表\ref{tab:results_before}および表\ref{tab:results_after}に,
+10回の装着条件における各評価指標の平均値を示す.
+\begin{table}[htbp]
+  \centering
+  \caption{学習前の評価指標（10条件平均）}
+  \label{tab:results_before}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & Accuracy [\%] & Stability [\%] & Confidence [\%] \\
+    \hline
+    paper & 100 & 100 & 99.8 \\
+    cizer & 68.3 & 68.3 & 83.3 \\
+    rock  & 97.2 & 97.2 & 90.4 \\
+    pinch & 45.8 & 46.9 & 66.1 \\
+    \hline
+    \textbf{平均} & \textbf{77.8} & \textbf{78.1} & \textbf{84.9} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \caption{学習後の評価指標（10条件平均）}
+  \label{tab:results_after}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & Accuracy [\%] & Stability [\%] & Confidence [\%] \\
+    \hline
+    paper & 96.0 & 96.0 & 94.6 \\
+    cizer & 76.3 & 76.3 & 75.6 \\
+    rock  & 97.8 & 97.8 & 95.4 \\
+    pinch & 70.6 & 70.6 & 72.1 \\
+    \hline
+    \textbf{平均} & \textbf{85.2} & \textbf{85.2} & \textbf{84.4} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+
+\subsection{学習前後の改善量}
+
+表\ref{tab:improvement}に,on-device学習による各指標の改善量を示す.
+
+\begin{table}[htbp]
+  \centering
+  \caption{on-device学習による改善量（10条件平均）}
+  \label{tab:improvement}
+  \begin{tabular}{lccc}
+    \hline
+    ラベル & $\Delta$Accuracy [\%pt] & $\Delta$Stability [\%pt] & $\Delta$Confidence [\%pt] \\
+    \hline
+    paper & $-4.0$ & $-4.0$ & $-5.2$ \\
+    cizer & $+8.0$ & $+8.0$ & $-7.7$ \\
+    rock  & $+0.6$ & $+0.6$ & $+5.0$ \\
+    pinch & $+24.8$ & $+23.7$ & $+6.0$ \\
+    \hline
+    \textbf{平均} & \textbf{$+7.3$} & \textbf{$+7.1$} & \textbf{$-0.5$} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+改善量は学習後の値から学習前の値を減算したもの（$\Delta = \text{学習後} - \text{学習前}$）である.
+正の値は性能向上,負の値は性能低下を示す.

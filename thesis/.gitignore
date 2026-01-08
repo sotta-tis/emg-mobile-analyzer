@@ -1,0 +1,35 @@
+# LaTeXビルド成果物
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.idx
+*.ind
+*.ilg
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.nav
+*.snm
+*.vrb
+
+# 一時ファイル
+*.bak
+*~
+.#*
+
+# macOS
+.DS_Store
+
