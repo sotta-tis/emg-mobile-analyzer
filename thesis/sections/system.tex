@@ -16,7 +16,7 @@
 \subsection{全体構成}
 \begin{enumerate}
 \item \textbf{モバイルウェア層（ペリフェラルデバイス）}\\
-Raspberry Pi Pico 2 W とMyoWareセンサーで構成される.1kHzサンプリングでADC変換したsEMG信号を,10サンプルずつパケットしてNotifyする.
+Raspberry Pi Pico 2 W とMyoWareセンサーで構成される.sEMGの有効周波数帯域は20--500Hzとされており\cite{zheng2022},サンプリング定理を満たすため1kHzでADC変換を行う.このサンプリングレートをBLE Notifyの制約内で伝送するため,10サンプルずつパケット化してNotifyする.
 
 \item \textbf{iOS層（ネイティブ実行環境）}\\
 FlutterブリッジがMethod Channel / Event Channelを介してFlutter層と通信し,Neural Engine（Core ML）を用いた推論・on-device学習,ローカルストレージへのセッション永続化を担当する.
