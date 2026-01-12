@@ -194,3 +194,63 @@ m=\arg\max_c\sum_{t\in T}\mathbb{1}[\hat{y}_t=c].
 
 改善量は学習後の値から学習前の値を減算したもの（$\Delta = \text{学習後} - \text{学習前}$）である.
 正の値は性能向上,負の値は性能低下を示す.
+
+\subsection{システムリソース}
+
+リアルタイム推論およびon-device学習時のCPU使用率を計測した.
+測定にはiPhone 15を使用し,
+Xcodeのデバッグツールによりプロセス単位のCPU使用率を記録した.
+
+\subsubsection{測定条件}
+リアルタイム推論は,窓長150サンプル（150ms）,
+ホップ長50サンプル（50ms）の設定で実行した.
+この設定により,理論上の最大推論レートは20fps（$1000/50=20$）となる.
+実測においても20fpsで安定して駆動することを確認した（図\ref{fig:realtime_inference}）.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.4\textwidth]{src/realtime_inference_fps.jpg}
+  \caption{リアルタイム推論画面（20fps駆動）}
+  \label{fig:realtime_inference}
+\end{figure}
+
+\subsubsection{on-device学習時間}
+on-device学習にかかる時間を計測した.
+231サンプルの学習データに対して,学習時間は約0.1秒であった（図\ref{fig:training_time}）.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.4\textwidth]{src/training_time.jpg}
+  \caption{on-device学習時間の計測画面（231サンプル, 0.11秒）}
+  \label{fig:training_time}
+\end{figure}
+
+\subsubsection{CPU使用率}
+図\ref{fig:cpu_usage}に各動作状態におけるCPU使用率の推移を示す.
+表\ref{tab:cpu_usage}に測定結果の概要を示す.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.3\textwidth]{src/cpu_usage_idling.png}
+  \hfill
+  \includegraphics[width=0.3\textwidth]{src/cpu_usage_inference.png}
+  \hfill
+  \includegraphics[width=0.3\textwidth]{src/cpu_usage_training.png}
+  \caption{CPU使用率の比較（左：アイドリング時，中央：リアルタイム推論時，右：on-device学習時）}
+  \label{fig:cpu_usage}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \caption{各動作状態におけるCPU使用率}
+  \label{tab:cpu_usage}
+  \begin{tabular}{lcc}
+    \hline
+    動作状態 & CPU使用率 \\
+    \hline
+    アイドリング & 約20\% \\
+    リアルタイム推論 & 約40\% \\
+    on-device学習 & 約50\% \\
+    \hline
+  \end{tabular}
+\end{table}

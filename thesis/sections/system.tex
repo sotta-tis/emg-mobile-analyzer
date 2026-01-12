@@ -63,8 +63,8 @@ MicroPythonベースのBLE Peripheral実装により,以下の機能を実装す
 \section{ソフトウェア構成}
 
 \subsection{技術選定}
-メインアプリケーションはGoogle社が開発したUIフレームワークであるFlutterを採用し,クリーンアーキテクチャに基づいて各処理をServiceとして定義し,Riverpodで状態管理する（図\ref{fig:flutter-arch}）.
-Flutterは単一コードベースでiOS/Androidアプリを同時開発できるため,本研究では現時点でiOS向けの実装を行ったが,後述するService単位でのロジック分離により,Android対応への拡張が容易な設計となっている.
+メインアプリケーションはGoogle社が開発したフレームワークであるFlutterを採用し,クリーンアーキテクチャに基づいて各処理をServiceとして定義し,Riverpodで状態管理する（図\ref{fig:flutter-arch}）.
+Flutterは単一コードベースでiOS/Androidアプリを同時開発できる. 本研究は現時点でiOS向けの実装を行ったが,後述するService単位でのロジック分離により,Android対応への拡張が容易な設計となっている.
 BLE通信,データバッファリング,特徴抽出などはプラットフォーム非依存のDartコードとC++コンパイルバイナリのFII呼び出しで実装し,機械学習推論部分のみをMethod Channel経由でNative層に委譲している.
 Android対応時にはTensorFlow Lite実装をKotlinで追加することで,Flutter層を変更せずにAndroid版を構築できる.
 本システムで使用する主要技術およびライブラリを表\ref{tab:software}に示す.
