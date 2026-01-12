@@ -24,6 +24,9 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
   static const recordDuration = Duration(seconds: 3);
   static const fileName = 'emg_dataset.json';
 
+  // トレーニング時間計測用
+  Duration? _lastTrainingDuration;
+
   Future<void> _record(String label) async {
     if (_busy) return;
 
@@ -89,7 +92,10 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
     setState(() {
       _busy = true;
       _status = 'Training on-device...';
+      _lastTrainingDuration = null;
     });
+
+    final stopwatch = Stopwatch()..start();
 
     try {
       final recorder = ref.read(emgDatasetRecorderProvider);
@@ -133,15 +139,18 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
       }
 
       final result = await ml.train(samples);
+      stopwatch.stop();
       final updatedPath =
           result['updatedModelPath'] as String? ?? '(path unknown)';
       final count = result['sampleCount'] as int? ?? samples.length;
 
       setState(() {
+        _lastTrainingDuration = stopwatch.elapsed;
         _status =
             'Training completed: $count samples${skipped > 0 ? ' (skipped: $skipped)' : ''}\nModel: $updatedPath';
       });
     } catch (e) {
+      stopwatch.stop();
       setState(() => _status = 'Training error: $e');
     } finally {
       setState(() => _busy = false);
@@ -188,13 +197,40 @@ class _EmgLabelRecordPanelState extends ConsumerState<EmgLabelRecordPanel> {
             ),
 
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: _busy ? null : _trainOnDevice,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('TRAIN ON-DEVICE'),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _busy ? null : _trainOnDevice,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('TRAIN ON-DEVICE'),
+                  ),
+                ),
+                if (_lastTrainingDuration != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green[100],
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.green),
+                    ),
+                    child: Text(
+                      '${(_lastTrainingDuration!.inMilliseconds / 1000).toStringAsFixed(2)}s',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
 
             TextButton(

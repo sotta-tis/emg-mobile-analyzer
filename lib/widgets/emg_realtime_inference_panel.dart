@@ -37,6 +37,11 @@ class _EmgRealtimeInferencePanelState
   bool _busy = false;
   String _status = 'waiting';
 
+  // FPS計測用
+  int _inferenceCount = 0;
+  double _fps = 0.0;
+  Timer? _fpsTimer;
+
   // 精度測定用
   final Map<String, double> _accuracies = {};
   final Map<String, double> _stabilities = {}; // Stability mode
@@ -54,6 +59,16 @@ class _EmgRealtimeInferencePanelState
     super.initState();
 
     _buffer = EmgWindowBuffer(windowSize: 150, hopSize: 50);
+
+    // FPS計測タイマー（1秒ごとに更新）
+    _fpsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _fps = _inferenceCount.toDouble();
+          _inferenceCount = 0;
+        });
+      }
+    });
 
     final ble = ref.read(bleServiceProvider);
     final ml = ref.read(emgMlServiceProvider);
@@ -77,6 +92,7 @@ class _EmgRealtimeInferencePanelState
         final pred = await ml.predictVector(normalized.toList(growable: false));
 
         if (!mounted) return;
+        _inferenceCount++;
         setState(() {
           _latest = pred;
           _status = 'ok';
@@ -120,6 +136,7 @@ class _EmgRealtimeInferencePanelState
 
   @override
   void dispose() {
+    _fpsTimer?.cancel();
     _sub?.cancel();
     super.dispose();
   }
@@ -222,9 +239,32 @@ class _EmgRealtimeInferencePanelState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'EMG Inference (CoreML)',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const Text(
+                  'EMG Inference (CoreML)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _fps > 0 ? Colors.green : Colors.grey,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${_fps.toStringAsFixed(1)} fps',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
 
