@@ -38,16 +38,13 @@
 % =====================
 % 要旨
 % =====================
-\chapter*{要旨}
-\addcontentsline{toc}{chapter}{要旨}
-\input{./abstract}
-\clearpage
-
 % =====================
 % 目次
 % =====================
+\pagenumbering{gobble}
 \tableofcontents
 \clearpage
+\pagenumbering{arabic}
 
 % =====================
 % 本文
@@ -69,6 +66,7 @@
 % =====================
 % 謝辞
 % =====================
+\renewcommand{\thepage}{\arabic{page}}
 \chapter*{謝辞}
 \addcontentsline{toc}{chapter}{謝辞}
 本研究を進めるにあたり,研究の方向性や進め方について大きな裁量をお与えくださり,自由な研究環境のもとでご指導くださいました安藤先生に,心より深く感謝申し上げます. \\
@@ -80,10 +78,14 @@
 メカトロニクスコース\\
 年澄 荘多
 \end{flushright}
+\clearpage
+\renewcommand{\thepage}{\arabic{page}}
 
 % =====================
 % 付録
 % =====================
+\appendix
+\renewcommand{\thepage}{A-\arabic{page}}
 \input{sections/appendix}
 
 \end{document}
